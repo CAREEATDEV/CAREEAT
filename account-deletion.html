@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suppression de compte – CARE EAT</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #0a0a0a;
+            --surface: #151516;
+            --surface-border: #252527;
+            --yellow: #f5d526;
+            --yellow-dim: rgba(245, 213, 38, 0.08);
+            --orange: #e8a520;
+            --gradient-btn: linear-gradient(180deg, #f5d526 0%, #e8a520 100%);
+            --text: #f0efe9;
+            --text-muted: #7a7a7e;
+            --text-dark: #0a0a0a;
+            --radius: 20px;
+        }
+
+        body {
+            font-family: 'DM Sans', -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.65;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 640px;
+            margin: 0 auto;
+            padding: 56px 20px 72px;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        .logo {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+
+        .logo .care { color: var(--text); }
+        .logo .eat { color: var(--yellow); }
+
+        .tagline {
+            color: var(--text-muted);
+            font-size: 14px;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            margin-bottom: 36px;
+        }
+
+        .header h1 {
+            font-size: clamp(24px, 5vw, 34px);
+            font-weight: 800;
+            color: var(--text);
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: var(--text-muted);
+            font-size: 15px;
+        }
+
+        /* Divider */
+        .divider {
+            width: 40px;
+            height: 3px;
+            background: var(--gradient-btn);
+            margin: 0 auto 40px;
+            border-radius: 3px;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius);
+            padding: 28px;
+            margin-bottom: 16px;
+            transition: border-color 0.3s ease, transform 0.2s ease;
+        }
+
+        .card:hover {
+            border-color: rgba(245, 213, 38, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 16px;
+        }
+
+        .card-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            background: var(--yellow-dim);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .card-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .card p {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-bottom: 10px;
+            line-height: 1.6;
+        }
+
+        .card p:last-child { margin-bottom: 0; }
+
+        /* Steps */
+        .step {
+            display: flex;
+            gap: 14px;
+            margin-bottom: 16px;
+        }
+
+        .step:last-child { margin-bottom: 0; }
+
+        .step-num {
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            background: var(--gradient-btn);
+            color: var(--text-dark);
+            font-weight: 800;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .step-content h3 {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+
+        .step-content p {
+            color: var(--text-muted);
+            font-size: 13.5px;
+            margin-bottom: 0;
+        }
+
+        /* List items */
+        .data-list {
+            list-style: none;
+            padding: 0;
+            margin: 4px 0 0;
+        }
+
+        .data-list li {
+            position: relative;
+            padding-left: 18px;
+            color: var(--text-muted);
+            font-size: 13.5px;
+            margin-bottom: 6px;
+            line-height: 1.5;
+        }
+
+        .data-list li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 8px;
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--yellow);
+        }
+
+        /* Email link inline */
+        .email-inline {
+            color: var(--yellow);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .email-inline:hover {
+            text-decoration: underline;
+        }
+
+        /* Info box */
+        .info-box {
+            background: var(--yellow-dim);
+            border: 1px solid rgba(245, 213, 38, 0.15);
+            border-radius: 12px;
+            padding: 16px 18px;
+            margin-top: 8px;
+        }
+
+        .info-box p {
+            color: var(--text-muted);
+            font-size: 13px;
+            margin: 0;
+            line-height: 1.55;
+        }
+
+        .info-box strong {
+            color: var(--text);
+        }
+
+        /* Back link */
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--yellow);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 32px;
+            transition: opacity 0.2s;
+        }
+
+        .back-link:hover { opacity: 0.7; }
+
+        .back-link svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            margin-top: 48px;
+            padding-top: 28px;
+            border-top: 1px solid var(--surface-border);
+            color: var(--text-muted);
+            font-size: 12px;
+            letter-spacing: 0.3px;
+        }
+
+        .footer span {
+            color: var(--yellow);
+            font-weight: 600;
+        }
+
+        /* Animations */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .back-link { animation: fadeUp 0.5s ease both; }
+        .header { animation: fadeUp 0.5s ease 0.05s both; }
+        .divider { animation: fadeUp 0.5s ease 0.1s both; }
+        .card:nth-child(1) { animation: fadeUp 0.5s ease 0.15s both; }
+        .card:nth-child(2) { animation: fadeUp 0.5s ease 0.22s both; }
+        .card:nth-child(3) { animation: fadeUp 0.5s ease 0.29s both; }
+        .card:nth-child(4) { animation: fadeUp 0.5s ease 0.36s both; }
+        .footer { animation: fadeUp 0.5s ease 0.42s both; }
+
+        @media (max-width: 480px) {
+            .container { padding: 40px 16px 56px; }
+            .card { padding: 22px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+
+        <a href="careeat-support.html" class="back-link">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            Retour à l'assistance
+        </a>
+
+        <div class="header">
+            <div class="logo">
+                <span class="care">CARE </span><span class="eat">EAT.</span>
+            </div>
+            <div class="tagline">Votre compagnon nutritionnel</div>
+            <h1>Suppression de compte</h1>
+            <p>Supprimez votre compte et vos données personnelles.</p>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Comment supprimer -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon">🗑️</div>
+                <div class="card-title">Comment supprimer votre compte</div>
+            </div>
+
+            <div class="step">
+                <div class="step-num">1</div>
+                <div class="step-content">
+                    <h3>Via l'application</h3>
+                    <p>Allez dans <strong>Paramètres</strong> (Profil) → <strong>Supprimer mon compte</strong></p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-num">2</div>
+                <div class="step-content">
+                    <h3>Via email (si vous n'avez plus accès à l'app)</h3>
+                    <p>Envoyez un email à <a href="mailto:support@careeat.app" class="email-inline">support@careeat.app</a> en indiquant votre identifiant de compte ou l'email utilisé lors de l'inscription.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Données supprimées -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon">📋</div>
+                <div class="card-title">Données supprimées</div>
+            </div>
+            <p>Lors de la suppression de votre compte, nous effaçons :</p>
+            <ul class="data-list">
+                <li>Données d'identification (email, informations de compte)</li>
+                <li>Données de santé et nutritionnelles</li>
+                <li>Historique du poids et données de suivi</li>
+                <li>Données de plan nutritionnel</li>
+            </ul>
+        </div>
+
+        <!-- Conservation & délai -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon">⏱️</div>
+                <div class="card-title">Délai et conservation</div>
+            </div>
+            <p>Nous traitons votre demande dans un délai raisonnable conforme aux obligations applicables.</p>
+            <div class="info-box">
+                <p><strong>Conservation légale :</strong> certaines données peuvent être conservées uniquement si la loi l'exige (ex. obligations comptables) ou pour résoudre des litiges.</p>
+            </div>
+        </div>
+
+        <!-- Suppression partielle -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon">✂️</div>
+                <div class="card-title">Suppression partielle</div>
+            </div>
+            <p>Si vous souhaitez supprimer une partie de vos données plutôt que l'intégralité, contactez-nous à <a href="mailto:support@careeat.app" class="email-inline">support@careeat.app</a> en précisant les données concernées.</p>
+        </div>
+
+        <div class="footer">
+            © 2025 <span>CARE EAT</span> — Tous droits réservés
+        </div>
+
+    </div>
+</body>
+</html>
