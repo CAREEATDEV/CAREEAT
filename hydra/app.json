@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "HYDRA",
+    "slug": "hydra",
+    "scheme": "hydra",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
+    "ios": {
+      "bundleIdentifier": "com.chipli.hydra",
+      "supportsTablet": false,
+      "infoPlist": {
+        "UIBackgroundModes": []
+      },
+      "entitlements": {
+        "com.apple.security.application-groups": ["group.com.chipli.hydra"]
+      }
+    },
+    "plugins": [
+      "expo-font",
+      [
+        "expo-build-properties",
+        {
+          "ios": { "deploymentTarget": "16.0" }
+        }
+      ],
+      [
+        "@bacons/apple-targets",
+        {
+          "appleTeamId": "REPLACE_TEAM_ID"
+        }
+      ]
+    ],
+    "extra": {
+      "appGroupId": "group.com.chipli.hydra"
+    }
+  }
+}

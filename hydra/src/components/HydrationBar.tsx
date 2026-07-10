@@ -1,0 +1,91 @@
+import React from 'react';
+import { StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { C, FONTS, RADIUS } from '../theme/colors';
+import { HydrationState } from '../engine/hydrationEngine';
+
+interface Props {
+  state: HydrationState;
+  segments?: number;
+  height?: number;
+  style?: ViewStyle;
+}
+
+export function HydrationBar({ state, segments = 20, height = 44, style }: Props) {
+  const filled = Math.round((state.level / 100) * segments);
+  const zoneColor =
+    state.zone === 'poison'
+      ? C.poison
+      : state.zone === 'red'
+      ? C.red
+      : state.zone === 'amber'
+      ? C.amber
+      : C.segmentFull;
+  return (
+    <View style={[styles.wrap, style]}>
+      <View style={[styles.bar, { height }]}>
+        {Array.from({ length: segments }).map((_, i) => {
+          const on = i < filled;
+          return (
+            <View
+              key={i}
+              style={[
+                styles.seg,
+                {
+                  backgroundColor: on ? zoneColor : C.segmentEmpty,
+                  shadowColor: on ? zoneColor : 'transparent',
+                },
+              ]}
+            />
+          );
+        })}
+      </View>
+      <View style={styles.metaRow}>
+        <Text style={styles.pct}>{state.level.toFixed(0)}%</Text>
+        <Text style={[styles.status, { color: zoneColor }]}>
+          {statusLabel(state)}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function statusLabel(s: HydrationState): string {
+  if (s.poisoned) return 'EMPOISONNÉ';
+  if (s.zone === 'red') return 'CRITIQUE';
+  if (s.zone === 'amber') return 'TU SÈCHES';
+  return 'HYDRATÉ';
+}
+
+const styles = StyleSheet.create({
+  wrap: { width: '100%' },
+  bar: {
+    flexDirection: 'row',
+    gap: 3,
+    padding: 4,
+    borderRadius: RADIUS.md,
+    backgroundColor: C.bgSoft,
+  },
+  seg: {
+    flex: 1,
+    borderRadius: 3,
+    shadowOpacity: 0.7,
+    shadowRadius: 4,
+  },
+  metaRow: {
+    marginTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+  },
+  pct: {
+    color: C.text,
+    fontSize: 40,
+    fontFamily: FONTS.monoBold,
+    letterSpacing: 2,
+  },
+  status: {
+    fontSize: 18,
+    fontFamily: FONTS.display,
+    letterSpacing: 3,
+  },
+});
