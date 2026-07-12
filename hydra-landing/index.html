@@ -382,37 +382,51 @@
 </footer>
 
 <script>
-// ————— Mockup iPhone — moteur fidèle au vrai hydrationEngine.ts (physio v2) —————
-// `mock` = le conteneur entier (les chips/toggle sont HORS du téléphone) ;
-// les querySelectorAll doivent donc porter sur .mock, pas sur #mkPhone.
+// ————— Mockup iPhone — moteur physio + TEMPS ACCÉLÉRÉ (1 s réelle = 5 min) —————
+// `mock` = le conteneur entier (les chips/toggle sont HORS du téléphone).
 const mock = document.querySelector('.mock');
 const SEG = 14, NEED = 2240, CAP = 1000;
-const STATES = {
-  green:  { pct:78, cd:'→ 5h20', color:'#3EE07A', poison:false },
-  amber:  { pct:42, cd:'→ 1h30', color:'#FFB020', poison:false },
-  red:    { pct:18, cd:'ROUGE',  color:'#FF3B4A', poison:false },
-  poison: { pct:66, cd:'→ 2h10', color:'#B44CFF', poison:true  },
+const BASE_DRAIN_H = NEED / 16;                 // 140 mL/h éveillé
+const SPEED = 5 * 60;                           // sim-secondes par seconde réelle (1 s = 5 min)
+const POISON_WINDOW = 4*3600*1000, POISON_PEAK = 2*3600*1000, ABSORB_WINDOW = 3600*1000;
+const CHIP_COLOR = {green:'#3EE07A', amber:'#FFB020', red:'#FF3B4A', poison:'#B44CFF'};
+// scénarios de départ : le chip pose un niveau, puis le temps le fait évoluer
+const PRESETS = {
+  green:  { pct:78, alc:null },
+  amber:  { pct:42, alc:null },
+  red:    { pct:18, alc:null },
+  poison: { pct:66, alc:[150,14] },             // injecte un alcool moyen → poison actif
 };
-let current='green', fmt='small', levelMl=STATES.green.pct/100*NEED, absorbed=0, isPoison=false, cdOverride=null;
+let current='green', fmt='small';
+let simMs = 0, levelMl = 0.78*NEED, alcoholEvents = [], waterEvents = [];
 const hexA=(h,a)=>{const n=parseInt(h.slice(1),16);return`rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;};
 const mkHint=document.getElementById('mkHint');
 const ethanolG=(v,abv)=>v*(abv/100)*0.789;
 const alcoholNet=(v,abv)=>v*(1-abv/100)-ethanolG(v,abv)*10;
+function peakPoison(g){ g=Math.max(10,Math.min(30,g)); return 0.3+((g-10)/20)*0.7; }
+function poisonMultAt(t){ let x=0; for(const e of alcoholEvents){ const dt=t-e.at; if(dt<0||dt>POISON_WINDOW) continue;
+  const r=dt/POISON_PEAK, f=(POISON_WINDOW-dt)/POISON_PEAK; x+=peakPoison(e.ethanolG)*Math.min(r,f); } return Math.min(3,1+x); }
 
 mock.querySelectorAll('[data-bar]').forEach(row=>{ for(let i=0;i<SEG;i++){const d=document.createElement('div');d.className='w-seg';row.appendChild(d);} });
 
-function zone(){
-  if(isPoison) return {c:'#B44CFF',s:'EMPOISONNÉ'};
+function zone(mult){
+  if(mult>1) return {c:'#B44CFF',s:'EMPOISONNÉ'};
   const p=levelMl/NEED*100;
   if(p<25) return {c:'#FF3B4A',s:'CRITIQUE'};
   if(p<=55) return {c:'#FFB020',s:'TU SÈCHES'};
   return {c:'#3EE07A',s:'HYDRATÉ'};
 }
+function countdown(mult){
+  const redMl=NEED*0.25, rate=BASE_DRAIN_H/60*mult;
+  if(levelMl<=redMl) return 'ROUGE';
+  const min=(levelMl-redMl)/rate, h=Math.floor(min/60), m=Math.round(min%60);
+  return '→ '+(h>0 ? h+'h'+String(m).padStart(2,'0') : m+'min');
+}
 function render(){
-  const z=zone(), pct=Math.round(levelMl/NEED*100), filled=Math.round(pct/100*SEG);
+  const mult=poisonMultAt(simMs), z=zone(mult), pct=Math.round(levelMl/NEED*100), filled=Math.round(pct/100*SEG), cd=countdown(mult);
   mock.querySelectorAll('[data-pct]').forEach(e=>{ e.textContent=pct+'%'; e.style.color=e.closest('.mono')?'#fff':z.c; });
   mock.querySelectorAll('[data-status]').forEach(e=>{ e.textContent=z.s; e.style.color=e.closest('.mono')?'#fff':z.c; });
-  mock.querySelectorAll('[data-cd]').forEach(e=>{ e.textContent=cdOverride||STATES[current].cd; });
+  mock.querySelectorAll('[data-cd]').forEach(e=>{ e.textContent=cd; });
   mock.querySelectorAll('[data-bar]').forEach(row=>{
     const mono=row.closest('.mono');
     [...row.children].forEach((d,i)=>{ const on=i<filled;
@@ -420,31 +434,32 @@ function render(){
       d.style.boxShadow = (on && !mono) ? '0 0 6px '+hexA(z.c,.5) : 'none';
     });
   });
-  // les boutons EAU suivent la couleur d'état ; en monochrome le CSS les gère (blanc)
   mock.querySelectorAll('.w-btn[data-drink]').forEach(b=>{ if(b.closest('.mono')) return;
     b.style.background=hexA(z.c,.15); b.style.color=z.c; b.style.boxShadow='inset 0 0 0 1px '+hexA(z.c,.4); });
 }
+function waterUsed(){ let u=0; for(const w of waterEvents) if(w.at>simMs-ABSORB_WINDOW) u+=w.credited; return u; }
 function drink(vol){
-  const remaining=Math.max(0,CAP-absorbed);
+  const remaining=Math.max(0,CAP-waterUsed());
   if(remaining<30){ mkHint.innerHTML='<b>SATURÉ · ton corps ne peut pas absorber plus vite. Attends.</b>'; return; }
-  const credited=Math.min(vol,remaining); absorbed+=credited; levelMl=Math.min(NEED,levelMl+credited); cdOverride=null;
+  const credited=Math.min(vol,remaining); levelMl=Math.min(NEED,levelMl+credited); waterEvents.push({at:simMs,credited});
   mkHint.innerHTML= credited<vol
     ? '<b>Presque saturé</b> — seulement '+Math.round(credited)+' mL crédités.'
-    : '+'+credited+' mL · absorbé cette heure '+Math.round(absorbed)+'/'+CAP+' mL';
+    : '+'+credited+' mL · absorbé cette heure '+Math.round(waterUsed())+'/'+CAP+' mL';
   render();
 }
 function drinkAlcohol(vol,abv){
-  const net=alcoholNet(vol,abv); levelMl=Math.max(0,Math.min(NEED,levelMl+net)); isPoison=true; cdOverride='EMPOISONNÉ';
+  const net=alcoholNet(vol,abv); levelMl=Math.max(0,Math.min(NEED,levelMl+net)); alcoholEvents.push({at:simMs,ethanolG:ethanolG(vol,abv)});
   mkHint.innerHTML= net>=0
-    ? 'Alcool léger : eau nette <b style="color:var(--green)">≈ neutre</b>, mais <b>POISON</b> (drain ×).'
-    : 'Perte nette <b>'+Math.round(net)+' mL</b> + <b>POISON</b> (drain ×).';
+    ? 'Alcool léger : eau nette <b style="color:var(--green)">≈ neutre</b>, mais <b>POISON</b> — regarde le drain s\'accélérer.'
+    : 'Perte nette <b>'+Math.round(net)+' mL</b> + <b>POISON</b> — le drain s\'accélère.';
   render();
 }
 function selectState(k){
-  current=k; const s=STATES[k]; levelMl=s.pct/100*NEED; absorbed=0; isPoison=s.poison; cdOverride=null;
+  current=k; const s=PRESETS[k]; levelMl=s.pct/100*NEED; alcoholEvents=[]; waterEvents=[];
+  if(s.alc) alcoholEvents.push({at:simMs, ethanolG:ethanolG(s.alc[0],s.alc[1])});
   mock.querySelectorAll('.mk-chip').forEach(x=>{ const on=x.dataset.state===k; x.setAttribute('aria-pressed',on);
-    x.style.background=on?STATES[x.dataset.state].color:''; x.style.borderColor=on?STATES[x.dataset.state].color:''; });
-  mkHint.innerHTML='Change l\'emplacement, l\'état, et tape <b style="color:var(--green)">+ EAU</b> ou un palier d\'alcool.';
+    x.style.background=on?CHIP_COLOR[x.dataset.state]:''; x.style.borderColor=on?CHIP_COLOR[x.dataset.state]:''; });
+  mkHint.innerHTML='1 s = 5 min : regarde le % descendre en direct. Tape <b style="color:var(--green)">+ EAU</b> ou un alcool.';
   render();
 }
 function setFmt(f){
@@ -470,7 +485,25 @@ document.getElementById('mkFmtSmall').addEventListener('click',()=>setFmt('small
 document.getElementById('mkFmtMedium').addEventListener('click',()=>setFmt('medium'));
 document.getElementById('mkFmtLock').addEventListener('click',()=>setFmt('lock'));
 
-selectState('green'); setFmt('small');
+// horloge fictive : 1 s réelle = 5 min simulées, sur l'écran d'accueil ET l'écran verrouillé
+let simClock = new Date(); simClock.setHours(9, 41, 0, 0);
+function updateClock(){
+  const H = simClock.getHours(), M = String(simClock.getMinutes()).padStart(2,'0');
+  const c1 = document.getElementById('mkClock'); if(c1) c1.textContent = H+':'+M;
+  const c2 = mock.querySelector('.lock .clock'); if(c2) c2.textContent = H+':'+M;
+}
+setInterval(() => {
+  simMs += SPEED * 1000;
+  simClock = new Date(simClock.getTime() + SPEED * 1000);
+  const mult = poisonMultAt(simMs);
+  levelMl = Math.max(0, levelMl - BASE_DRAIN_H / 3600000 * mult * SPEED * 1000);
+  alcoholEvents = alcoholEvents.filter(e => simMs - e.at <= POISON_WINDOW);
+  waterEvents = waterEvents.filter(e => simMs - e.at <= ABSORB_WINDOW);
+  updateClock();
+  render();
+}, 1000);
+
+selectState('green'); setFmt('small'); updateClock();
 
 // ————— WIZARD WAITLIST v2 → Supabase (RPC security-definer uniquement) —————
 // La table n'est ni lisible ni écrivable directement : tout passe par des
