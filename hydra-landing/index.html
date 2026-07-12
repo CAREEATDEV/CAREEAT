@@ -7,6 +7,8 @@
 <meta name="description" content="Le widget lock screen qui transforme ton hydratation en barre de vie. Elle se vide en continu. L'eau la recharge. L'alcool l'empoisonne.">
 <meta property="og:title" content="HYDRA — Ton corps a une barre de vie">
 <meta property="og:description" content="Widget iOS lock screen. La barre se vide. Tu bois, elle remonte. Tu bois de l'alcool, poison ×3.">
+<link rel="icon" type="image/svg+xml" href="logo.svg">
+<link rel="apple-touch-icon" href="logo.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
@@ -26,6 +28,7 @@
 
   /* HERO */
   .hero{min-height:92vh;display:flex;flex-direction:column;justify-content:center;text-align:center}
+  .hero .logo{display:block;margin:0 auto 18px;width:88px;height:auto;filter:drop-shadow(0 6px 26px rgba(62,224,122,.28))}
   .hero .brand{font-family:'Chakra Petch';font-size:14px;letter-spacing:.5em;color:var(--dim);margin-bottom:24px}
   .hero h1{font-size:clamp(30px,6vw,58px);line-height:1.15}
   .hero h1 .g{color:var(--green)}
@@ -224,6 +227,7 @@
 
 <!-- ============ HERO ============ -->
 <section class="hero">
+  <img class="logo" src="logo.svg" alt="HYDRA" width="88" height="95">
   <div class="brand">HYDRA</div>
   <h1>Ton corps a une<br><span class="g">barre de vie.</span></h1>
   <p class="sub">Un widget sur ton écran verrouillé. La barre se vide en continu, comme dans un jeu.
