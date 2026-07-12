@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HYDRA — Ton corps a une barre de vie</title>
+<meta name="description" content="Le widget lock screen qui transforme ton hydratation en barre de vie. Elle se vide en continu. L'eau la recharge. L'alcool l'empoisonne.">
+<meta property="og:title" content="HYDRA — Ton corps a une barre de vie">
+<meta property="og:description" content="Widget iOS lock screen. La barre se vide. Tu bois, elle remonte. Tu bois de l'alcool, poison ×3.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#000000; --bg-soft:#101216;
+    --green:#3EE07A; --green-deep:#2ECC6A;
+    --amber:#FFB020; --red:#FF3B4A; --poison:#B44CFF;
+    --empty:#1C2026; --text:#EDEFF2; --dim:#7C828C;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--text);font-family:'IBM Plex Mono',monospace;line-height:1.6;overflow-x:hidden}
+  h1,h2,h3,.btn{font-family:'Chakra Petch',sans-serif;letter-spacing:.08em;text-transform:uppercase}
+  section{max-width:960px;margin:0 auto;padding:72px 24px}
+  a{color:var(--green)}
+
+  /* HERO */
+  .hero{min-height:92vh;display:flex;flex-direction:column;justify-content:center;text-align:center}
+  .hero .brand{font-family:'Chakra Petch';font-size:14px;letter-spacing:.5em;color:var(--dim);margin-bottom:24px}
+  .hero h1{font-size:clamp(30px,6vw,58px);line-height:1.15}
+  .hero h1 .g{color:var(--green)}
+  .hero p.sub{color:var(--dim);margin:20px auto 0;max-width:560px;font-size:15px}
+  .cta-row{margin-top:36px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+
+  .btn{display:inline-block;padding:16px 32px;border-radius:14px;border:1.5px solid var(--green);color:var(--green);background:transparent;font-size:15px;font-weight:700;cursor:pointer;text-decoration:none;transition:all .15s}
+  .btn:hover{background:var(--green);color:#000}
+  .btn.solid{background:var(--green);color:#000}
+  .btn.solid:hover{background:var(--green-deep)}
+
+  /* DEMO WIDGET */
+  .demo-wrap{margin:56px auto 0;max-width:420px}
+  .lockscreen{background:var(--bg-soft);border:1px solid #22262e;border-radius:28px;padding:28px 22px;box-shadow:0 0 80px rgba(62,224,122,.08)}
+  .ls-time{font-family:'Chakra Petch';font-size:44px;font-weight:700;text-align:center;color:var(--text);letter-spacing:.05em}
+  .ls-date{text-align:center;color:var(--dim);font-size:12px;margin-bottom:20px}
+  .widget{background:#0a0c10;border:1px solid #22262e;border-radius:16px;padding:12px 14px}
+  .w-head{display:flex;justify-content:space-between;align-items:baseline;font-size:11px}
+  .w-head .lbl{color:var(--dim);letter-spacing:.3em;font-family:'Chakra Petch';font-weight:600}
+  .w-head .pct{font-weight:700;font-size:14px}
+  .bar{display:flex;gap:3px;margin:8px 0}
+  .seg{flex:1;height:14px;border-radius:3px;background:var(--empty);transition:background .3s, box-shadow .3s}
+  .seg.on{background:var(--green);box-shadow:0 0 6px rgba(62,224,122,.55)}
+  .bar.amber .seg.on{background:var(--amber);box-shadow:0 0 6px rgba(255,176,32,.55)}
+  .bar.red .seg.on{background:var(--red);box-shadow:0 0 6px rgba(255,59,74,.55)}
+  .bar.poison .seg.on{background:var(--poison);box-shadow:0 0 8px rgba(180,76,255,.65)}
+  .w-foot{display:flex;justify-content:space-between;font-size:10px}
+  .w-foot .status{font-family:'Chakra Petch';font-weight:600;letter-spacing:.15em}
+  .w-foot .cd{color:var(--dim)}
+  .demo-btns{display:flex;gap:10px;margin-top:18px}
+  .demo-btns button{flex:1;padding:13px 6px;border-radius:12px;background:#0a0c10;border:1.5px solid var(--empty);color:var(--text);font-family:'Chakra Petch';font-weight:600;font-size:13px;letter-spacing:.1em;cursor:pointer;transition:border-color .15s}
+  .demo-btns button:hover{border-color:var(--dim)}
+  .demo-btns button.water{border-color:var(--green);color:var(--green)}
+  .demo-btns button.beer{border-color:var(--amber);color:var(--amber)}
+  .demo-btns button.shot{border-color:var(--red);color:var(--red)}
+  .demo-hint{text-align:center;color:var(--dim);font-size:11px;margin-top:12px}
+
+  /* CONCEPT */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;margin-top:36px}
+  .card{background:var(--bg-soft);border:1px solid #1a1e26;border-radius:20px;padding:26px}
+  .card h3{font-size:15px;margin-bottom:10px;color:var(--green)}
+  .card.poison h3{color:var(--poison)}
+  .card.red h3{color:var(--red)}
+  .card p{color:var(--dim);font-size:13px}
+  h2{font-size:clamp(22px,4vw,32px);text-align:center}
+  .kicker{text-align:center;color:var(--dim);font-size:12px;letter-spacing:.3em;margin-bottom:10px;font-family:'Chakra Petch'}
+
+  /* PRICING */
+  .plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-top:36px;align-items:stretch}
+  .plan{background:var(--bg-soft);border:1.5px solid #1a1e26;border-radius:20px;padding:30px 26px;text-align:center;position:relative}
+  .plan.hot{border-color:var(--green)}
+  .plan .tag{position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--green);color:#000;font-size:10px;font-weight:700;font-family:'Chakra Petch';letter-spacing:.15em;padding:3px 12px;border-radius:99px;white-space:nowrap}
+  .plan h3{font-size:14px;color:var(--dim)}
+  .plan .price{font-size:38px;font-weight:700;margin:14px 0 2px;font-family:'Chakra Petch'}
+  .plan .per{color:var(--dim);font-size:12px}
+  .plan ul{list-style:none;margin-top:18px;text-align:left;font-size:12px;color:var(--dim)}
+  .plan li{padding:5px 0 5px 20px;position:relative}
+  .plan li::before{content:"▸";position:absolute;left:0;color:var(--green)}
+  .trial-note{text-align:center;color:var(--dim);font-size:12px;margin-top:22px}
+  .trial-note b{color:var(--text)}
+
+  /* FORM */
+  .signup{background:var(--bg-soft);border-radius:28px;border:1px solid #1a1e26;padding:48px 28px}
+  .signup h2{margin-bottom:6px}
+  .signup .sub{text-align:center;color:var(--dim);font-size:13px;max-width:520px;margin:0 auto 30px}
+  form{max-width:480px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+  input[type=email]{width:100%;padding:16px 18px;border-radius:14px;border:1.5px solid var(--empty);background:#0a0c10;color:var(--text);font-family:'IBM Plex Mono';font-size:15px;outline:none}
+  input[type=email]:focus{border-color:var(--green)}
+  fieldset{border:none;display:flex;flex-direction:column;gap:8px}
+  fieldset legend{color:var(--dim);font-size:12px;margin-bottom:10px;letter-spacing:.1em;font-family:'Chakra Petch';text-transform:uppercase}
+  .radio{display:flex;align-items:center;gap:12px;background:#0a0c10;border:1.5px solid var(--empty);border-radius:12px;padding:13px 16px;cursor:pointer;font-size:13px;transition:border-color .15s}
+  .radio:hover{border-color:var(--dim)}
+  .radio input{accent-color:var(--green)}
+  .radio:has(input:checked){border-color:var(--green)}
+  .form-ok{display:none;text-align:center;padding:30px;color:var(--green);font-family:'Chakra Petch';font-size:18px;letter-spacing:.1em}
+  .form-err{display:none;text-align:center;color:var(--red);font-size:12px}
+
+  footer{text-align:center;padding:48px 24px;color:var(--dim);font-size:11px;border-top:1px solid #14171d}
+  footer .fbrand{font-family:'Chakra Petch';letter-spacing:.4em;color:var(--text);margin-bottom:8px}
+  @media(max-width:520px){ .hero{min-height:80vh} section{padding:56px 18px} }
+</style>
+</head>
+<body>
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div class="brand">HYDRA</div>
+  <h1>Ton corps a une<br><span class="g">barre de vie.</span></h1>
+  <p class="sub">Un widget sur ton écran verrouillé. La barre se vide en continu, comme dans un jeu.
+  Tu bois de l'eau → elle remonte. Tu bois de l'alcool → <span style="color:var(--poison)">POISON ×3</span>.
+  Pas de plante à arroser. Pas de mascotte. Juste toi contre la barre.</p>
+  <div class="cta-row">
+    <a href="#signup" class="btn solid">Accès anticipé →</a>
+    <a href="#demo" class="btn">Voir la démo</a>
+  </div>
+</section>
+
+<!-- ============ DEMO ============ -->
+<section id="demo" style="padding-top:0">
+  <div class="kicker">DÉMO INTERACTIVE</div>
+  <h2>Essaie. Là. Maintenant.</h2>
+  <div class="demo-wrap">
+    <div class="lockscreen">
+      <div class="ls-time" id="clock">21:47</div>
+      <div class="ls-date">vendredi 12 juillet</div>
+      <div class="widget">
+        <div class="w-head">
+          <span class="lbl">HYDRA</span>
+          <span class="pct" id="pct" style="color:var(--green)">78%</span>
+        </div>
+        <div class="bar" id="bar"></div>
+        <div class="w-foot">
+          <span class="status" id="status" style="color:var(--green)">HYDRATÉ</span>
+          <span class="cd" id="countdown">rouge dans 5h20</span>
+        </div>
+      </div>
+      <div class="demo-btns">
+        <button class="water" onclick="demoDrink('water')">+ EAU</button>
+        <button class="beer" onclick="demoDrink('beer')">+ BIÈRE</button>
+        <button class="shot" onclick="demoDrink('shot')">+ SHOT</button>
+      </div>
+      <div class="demo-hint">La démo tourne en accéléré (1 s = 5 min). Dans l'app, c'est ta vraie journée.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CONCEPT ============ -->
+<section>
+  <div class="kicker">LE CONCEPT</div>
+  <h2>Brutal. Minimaliste. Efficace.</h2>
+  <div class="cards">
+    <div class="card">
+      <h3>▮▮▮ Widget lock screen</h3>
+      <p>La barre vit sur ton écran verrouillé. Tu la vois 100 fois par jour, que tu le veuilles ou non. C'est le but.</p>
+    </div>
+    <div class="card poison">
+      <h3>☠ Debuff poison</h3>
+      <p>Bière, vin, shot : la barre prend un hit direct ET se vide 3× plus vite pendant 90 à 120 minutes. Comme dans un vrai RPG.</p>
+    </div>
+    <div class="card red">
+      <h3>⚠ Notifications sèches</h3>
+      <p>« TU SÈCHES. » « CRITIQUE. Verre. Tout de suite. » Pas de "n'oublie pas de t'hydrater 💧🌸". Jamais.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PRICING ============ -->
+<section id="pricing">
+  <div class="kicker">TARIFS PRÉVUS</div>
+  <h2>Essaie gratuit. Paie si ça marche.</h2>
+  <div class="plans">
+    <div class="plan">
+      <h3>Mensuel</h3>
+      <div class="price">1,99&nbsp;€</div>
+      <div class="per">par mois</div>
+      <ul>
+        <li>Widget barre de vie</li>
+        <li>Mécanique poison</li>
+        <li>Notifications de zone</li>
+        <li>Historique &amp; streaks</li>
+      </ul>
+    </div>
+    <div class="plan hot">
+      <span class="tag">PRIX FONDATEUR — BLOQUÉ À VIE</span>
+      <h3>Annuel</h3>
+      <div class="price">14,99&nbsp;€</div>
+      <div class="per">par an — soit 1,25 €/mois</div>
+      <ul>
+        <li>Tout le mensuel</li>
+        <li>Prix gelé pour toujours</li>
+        <li>Accès anticipé aux nouveautés</li>
+        <li>Ton nom dans les crédits (si tu veux)</li>
+      </ul>
+    </div>
+  </div>
+  <p class="trial-note"><b>14 jours d'essai gratuit</b>, sans carte bancaire. La barre ne ment pas : si l'app ne te fait pas boire plus d'eau, tu ne paies rien.</p>
+</section>
+
+<!-- ============ SIGNUP ============ -->
+<section id="signup">
+  <div class="signup">
+    <div class="kicker">ACCÈS ANTICIPÉ</div>
+    <h2>Sois prévenu au lancement</h2>
+    <p class="sub">Les pré-inscrits ont l'essai gratuit allongé à 30 jours et le prix fondateur garanti à vie. Zéro spam — un mail au lancement, c'est tout.</p>
+    <form id="waitlist" action="https://formspree.io/f/REMPLACER_FORM_ID" method="POST">
+      <input type="email" name="email" placeholder="ton@email.com" required autocomplete="email">
+      <fieldset>
+        <legend>Sérieusement, tu paierais ?</legend>
+        <label class="radio"><input type="radio" name="intention" value="paierait_abonnement" required> Oui, ce prix est correct</label>
+        <label class="radio"><input type="radio" name="intention" value="essai_dabord"> Je testerais l'essai gratuit d'abord</label>
+        <label class="radio"><input type="radio" name="intention" value="gratuit_seulement"> Seulement si c'est gratuit</label>
+        <label class="radio"><input type="radio" name="intention" value="trop_cher"> Trop cher, je paierais moins</label>
+      </fieldset>
+      <button type="submit" class="btn solid" style="width:100%">Rejoindre la liste →</button>
+      <p class="form-err" id="formErr">Erreur d'envoi. Réessaie dans une minute.</p>
+    </form>
+    <div class="form-ok" id="formOk">▮▮▮▮▮▮▮▮▮▮ 100%<br>INSCRIT. On se voit au lancement.</div>
+  </div>
+</section>
+
+<footer>
+  <div class="fbrand">HYDRA</div>
+  <p>iOS uniquement au lancement. Aucune donnée revendue, aucun tracker tiers.</p>
+</footer>
+
+<script>
+// ————— Mini moteur de démo (version simplifiée du vrai moteur de l'app) —————
+const SEGMENTS = 14;
+let level = 78;
+let poisonUntil = 0;          // timestamp ms
+const SPEED = 5 * 60;         // 1s réelle = 5 min simulées
+const DRAIN_PER_SIM_MIN = 100 / (10 * 60);   // 100% en 10h éveillées
+
+const bar = document.getElementById('bar');
+for (let i = 0; i < SEGMENTS; i++) {
+  const s = document.createElement('div');
+  s.className = 'seg';
+  bar.appendChild(s);
+}
+const segs = [...bar.children];
+
+function zoneColor() {
+  if (Date.now() < poisonUntil) return 'poison';
+  if (level < 25) return 'red';
+  if (level <= 55) return 'amber';
+  return 'green';
+}
+function statusText(z) {
+  return z === 'poison' ? 'EMPOISONNÉ' : z === 'red' ? 'CRITIQUE' : z === 'amber' ? 'TU SÈCHES' : 'HYDRATÉ';
+}
+const CSSC = {green:'var(--green)', amber:'var(--amber)', red:'var(--red)', poison:'var(--poison)'};
+
+function render() {
+  const z = zoneColor();
+  bar.className = 'bar ' + z;
+  const filled = Math.round(level / 100 * SEGMENTS);
+  segs.forEach((s, i) => s.classList.toggle('on', i < filled));
+  document.getElementById('pct').textContent = Math.round(level) + '%';
+  document.getElementById('pct').style.color = CSSC[z];
+  const st = document.getElementById('status');
+  st.textContent = statusText(z);
+  st.style.color = CSSC[z];
+  // countdown vers rouge (simulé)
+  const mult = z === 'poison' ? 3 : 1;
+  const minToRed = Math.max(0, (level - 25) / (DRAIN_PER_SIM_MIN * mult));
+  const h = Math.floor(minToRed / 60), m = Math.round(minToRed % 60);
+  document.getElementById('countdown').textContent =
+    level <= 25 ? 'ZONE ROUGE' : 'rouge dans ' + (h > 0 ? h + 'h' + String(m).padStart(2,'0') : m + 'min');
+}
+
+function demoDrink(kind) {
+  if (kind === 'water') level = Math.min(100, level + 14);
+  if (kind === 'beer') { level = Math.max(0, level - 8);  addPoison(90); }
+  if (kind === 'shot') { level = Math.max(0, level - 15); addPoison(120); }
+  render();
+}
+function addPoison(simMinutes) {
+  // durées cumulées, plafonnées à 4h simulées — comme le vrai moteur
+  const realMs = simMinutes / SPEED * 60 * 1000;
+  const capMs = 240 / SPEED * 60 * 1000;
+  const base = Math.max(Date.now(), poisonUntil);
+  poisonUntil = Math.min(base + realMs, Date.now() + capMs);
+}
+
+setInterval(() => {
+  const mult = Date.now() < poisonUntil ? 3 : 1;
+  level = Math.max(0, level - DRAIN_PER_SIM_MIN * mult * SPEED / 60);
+  render();
+}, 1000);
+
+// horloge fictive qui avance en accéléré
+let simClock = new Date(); simClock.setHours(21, 47, 0);
+setInterval(() => {
+  simClock = new Date(simClock.getTime() + SPEED * 1000);
+  document.getElementById('clock').textContent =
+    String(simClock.getHours()).padStart(2,'0') + ':' + String(simClock.getMinutes()).padStart(2,'0');
+}, 1000);
+
+render();
+
+// ————— Formulaire (AJAX vers Formspree, fallback POST normal) —————
+document.getElementById('waitlist').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  try {
+    const res = await fetch(form.action, {
+      method: 'POST',
+      body: new FormData(form),
+      headers: { 'Accept': 'application/json' }
+    });
+    if (res.ok) {
+      form.style.display = 'none';
+      document.getElementById('formOk').style.display = 'block';
+    } else {
+      document.getElementById('formErr').style.display = 'block';
+    }
+  } catch {
+    document.getElementById('formErr').style.display = 'block';
+  }
+});
+</script>
+</body>
+</html>
