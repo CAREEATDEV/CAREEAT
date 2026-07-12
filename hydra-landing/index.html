@@ -210,7 +210,7 @@
     <div class="kicker">ACCÈS ANTICIPÉ</div>
     <h2>Sois prévenu au lancement</h2>
     <p class="sub">Les pré-inscrits ont l'essai gratuit allongé à 30 jours et le prix fondateur garanti à vie. Zéro spam — un mail au lancement, c'est tout.</p>
-    <form id="waitlist" action="https://formspree.io/f/REMPLACER_FORM_ID" method="POST">
+    <form id="waitlist">
       <input type="email" name="email" placeholder="ton@email.com" required autocomplete="email">
       <fieldset>
         <legend>Sérieusement, tu paierais ?</legend>
@@ -306,24 +306,50 @@ setInterval(() => {
 
 render();
 
-// ————— Formulaire (AJAX vers Formspree, fallback POST normal) —————
+// ————— Formulaire → Supabase (insert direct via anon key + RLS) —————
+const SUPABASE_URL = 'https://rusdjbgpghbistjeeboo.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_owiaBzFlcc2x6uOeiQIBUg_dMSXEUOk';
+
 document.getElementById('waitlist').addEventListener('submit', async (e) => {
   e.preventDefault();
   const form = e.target;
+  const fd = new FormData(form);
+  const payload = {
+    email: (fd.get('email') || '').toString().trim().toLowerCase(),
+    intention: fd.get('intention'),
+    user_agent: navigator.userAgent.slice(0, 500),
+    referrer: (document.referrer || '').slice(0, 500)
+  };
+  const errEl = document.getElementById('formErr');
+  errEl.style.display = 'none';
   try {
-    const res = await fetch(form.action, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/hydra_waitlist`, {
       method: 'POST',
-      body: new FormData(form),
-      headers: { 'Accept': 'application/json' }
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON,
+        'Authorization': `Bearer ${SUPABASE_ANON}`,
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify(payload)
     });
     if (res.ok) {
       form.style.display = 'none';
       document.getElementById('formOk').style.display = 'block';
-    } else {
-      document.getElementById('formErr').style.display = 'block';
+      return;
     }
+    // 409 = déjà inscrit (unique email) → succès quand même
+    if (res.status === 409) {
+      form.style.display = 'none';
+      document.getElementById('formOk').innerHTML = '▮▮▮▮▮▮▮▮▮▮ 100%<br>DÉJÀ INSCRIT. On se voit au lancement.';
+      document.getElementById('formOk').style.display = 'block';
+      return;
+    }
+    errEl.textContent = 'Erreur d\'envoi. Réessaie dans une minute.';
+    errEl.style.display = 'block';
   } catch {
-    document.getElementById('formErr').style.display = 'block';
+    errEl.textContent = 'Réseau injoignable. Réessaie.';
+    errEl.style.display = 'block';
   }
 });
 </script>
