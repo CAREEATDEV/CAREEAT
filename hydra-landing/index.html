@@ -63,6 +63,9 @@
   .demo-btns button.medium{border-color:var(--amber);color:var(--amber)}
   .demo-btns button.shot{border-color:var(--red);color:var(--red)}
   .demo-btns button{font-size:11px;padding:12px 4px}
+  .alc-group{margin-top:10px;border:1px solid #26201a;border-radius:14px;padding:10px 10px 12px;position:relative}
+  .alc-group .demo-btns{margin-top:2px}
+  .alc-label{position:absolute;top:-9px;left:14px;background:var(--bg-soft);padding:0 8px;font-family:'Chakra Petch';font-size:10px;letter-spacing:.3em;color:var(--amber)}
   .demo-hint{text-align:center;color:var(--dim);font-size:11px;margin-top:12px}
   .demo-ml{text-align:center;color:var(--dim);font-family:'IBM Plex Mono';font-size:11px;margin-top:14px;letter-spacing:.05em}
 
@@ -177,9 +180,14 @@
       <div class="demo-ml" id="ml">1747 / 2240 mL · besoin = 70 kg × 32</div>
       <div class="demo-btns">
         <button class="water" onclick="demoDrink('water')">+ EAU</button>
-        <button class="light" onclick="demoDrink('light')">LÉGER 2–8°</button>
-        <button class="medium" onclick="demoDrink('medium')">MOYEN 9–22°</button>
-        <button class="shot" onclick="demoDrink('strong')">FORT 30–45°</button>
+      </div>
+      <div class="alc-group">
+        <span class="alc-label">ALCOOL</span>
+        <div class="demo-btns">
+          <button class="light" onclick="demoDrink('light')">LÉGER 2–8°</button>
+          <button class="medium" onclick="demoDrink('medium')">MOYEN 9–22°</button>
+          <button class="shot" onclick="demoDrink('strong')">FORT 30–45°</button>
+        </div>
       </div>
       <div class="demo-hint" id="hint">La démo tourne en accéléré (1 s = 5 min). Modèle physiologique réel : ton corps n'absorbe qu'~1 L d'eau par heure — au-delà, la barre sature.</div>
     </div>
