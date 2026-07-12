@@ -6,9 +6,12 @@ import {
   DEFAULT_PRESETS,
   DrinkPreset,
   HydrationEvent,
+  remainingAbsorptionMl,
   SportIntensity,
   UserProfile,
 } from '../engine/hydrationEngine';
+
+export type LogResult = { ok: true } | { ok: false; reason: 'saturated'; remainingMl: number };
 import {
   reloadWidgetTimelines,
   writeSharedSnapshot,
@@ -20,7 +23,7 @@ interface HydraState {
   profile: UserProfile;
   presets: DrinkPreset[];
   hydrated: boolean;
-  logPreset: (key: string) => Promise<void>;
+  logPreset: (key: string) => Promise<LogResult>;
   logCustomDrink: (kind: 'water' | 'electrolytes' | 'alcohol' | 'caffeine', args: { volumeMl: number; abv?: number; caffeineMg?: number }) => Promise<void>;
   logSport: (durationMin: number, intensity: SportIntensity) => Promise<void>;
   undo: () => Promise<void>;
@@ -37,10 +40,18 @@ export const useHydration = create<HydraState>()(
       presets: DEFAULT_PRESETS,
       hydrated: false,
 
-      async logPreset(key) {
+      async logPreset(key): Promise<LogResult> {
         const preset = get().presets.find((p) => p.key === key);
-        if (!preset) return;
+        if (!preset) return { ok: true };
         const at = Date.now();
+        // Saturation guard: you can't drink faster than your body absorbs.
+        // Block water/electrolytes when the rolling-hour capacity is used up.
+        if (preset.kind === 'water' || preset.kind === 'electrolytes') {
+          const remaining = remainingAbsorptionMl(get().events, at);
+          if (remaining < 30) {
+            return { ok: false, reason: 'saturated', remainingMl: remaining };
+          }
+        }
         let e: HydrationEvent;
         if (preset.kind === 'water') e = { type: 'water', at, volumeMl: preset.volumeMl };
         else if (preset.kind === 'electrolytes') e = { type: 'electrolytes', at, volumeMl: preset.volumeMl };
@@ -48,6 +59,7 @@ export const useHydration = create<HydraState>()(
         else e = { type: 'caffeine', at, volumeMl: preset.volumeMl, caffeineMg: preset.caffeineMg };
         set({ events: [...get().events, e] });
         await get()._sync();
+        return { ok: true };
       },
 
       async logCustomDrink(kind, args) {

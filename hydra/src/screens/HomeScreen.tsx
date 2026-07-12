@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import * as Haptics from 'expo-haptics';
 import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { HydrationBar } from '../components/HydrationBar';
 import { LogButton } from '../components/LogButton';
@@ -10,6 +11,7 @@ import { computeGreenStreak, formatCountdown } from '../util/time';
 export function HomeScreen() {
   const { events, profile, presets, logPreset, logSport, undo } = useHydration();
   const [tick, setTick] = useState(0);
+  const [toast, setToast] = useState<string | null>(null);
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 15_000);
     return () => clearInterval(id);
@@ -18,6 +20,15 @@ export function HomeScreen() {
   const streak = computeGreenStreak(events);
 
   const findPreset = (key: string) => presets.find((p) => p.key === key);
+
+  const drink = async (key: string) => {
+    const r = await logPreset(key);
+    if (!r.ok && r.reason === 'saturated') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      setToast('SATURÉ · ton corps ne peut pas absorber plus vite. Attends un peu.');
+      setTimeout(() => setToast(null), 2800);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.root}>
@@ -34,48 +45,50 @@ export function HomeScreen() {
             <Text style={styles.cdVal}>{formatCountdown(state.redAt)}</Text>
           </View>
 
+          {toast ? <Text style={styles.toast}>{toast}</Text> : null}
+
           <View style={styles.grid}>
             <LogButton
               label="EAU"
               sub={`+${findPreset('water')?.volumeMl ?? 250}ml`}
               color={C.segmentFull}
-              onPress={() => logPreset('water')}
+              onPress={() => drink('water')}
             />
             <LogButton
               label="BOUTEILLE"
               sub={`+${findPreset('water_bottle')?.volumeMl ?? 500}ml`}
               color={C.segmentFull}
-              onPress={() => logPreset('water_bottle')}
+              onPress={() => drink('water_bottle')}
             />
           </View>
 
           <View style={styles.grid}>
             <LogButton
-              label="BIÈRE 5%"
-              sub="500ml"
+              label="ALCOOL LÉGER"
+              sub="2–8°  bière, cidre"
               color={C.amber}
-              onPress={() => logPreset('beer_lager')}
+              onPress={() => drink('alcohol_light')}
             />
             <LogButton
-              label="IPA 8%"
-              sub="500ml"
+              label="ALCOOL MOYEN"
+              sub="9–22°  vin, cocktail"
               color={C.amber}
-              onPress={() => logPreset('beer_ipa')}
+              onPress={() => drink('alcohol_medium')}
             />
           </View>
 
           <View style={styles.grid}>
             <LogButton
-              label="VIN"
-              sub="150ml / 13%"
-              color={C.amber}
-              onPress={() => logPreset('wine')}
-            />
-            <LogButton
-              label="SHOT"
-              sub="40ml / 40%"
+              label="ALCOOL FORT"
+              sub="30–45°  spiritueux"
               color={C.red}
-              onPress={() => logPreset('shot')}
+              onPress={() => drink('alcohol_strong')}
+            />
+            <LogButton
+              label="ÉLECTROLYTES"
+              sub="+500ml · rétention ×1.1"
+              color={C.segmentFull}
+              onPress={() => drink('electrolytes')}
             />
           </View>
 
@@ -102,7 +115,8 @@ export function HomeScreen() {
 
           <Text style={styles.footHint}>
             Besoin quotidien : {Math.round(state.dailyNeedMl)} mL (
-            {profile.weightKg} kg × 32)
+            {profile.weightKg} kg × 32) · absorbé cette heure{' '}
+            {Math.round(state.absorbedLastHourMl)}/{state.absorbCapMl} mL
           </Text>
         </View>
         <Text style={styles.hidden}>TICK {tick}</Text>
@@ -138,6 +152,14 @@ const styles = StyleSheet.create({
   },
   cdVal: { color: C.text, fontFamily: FONTS.monoBold, fontSize: 20 },
   grid: { flexDirection: 'row', gap: 12 },
+  toast: {
+    color: C.poison,
+    fontFamily: FONTS.label,
+    fontSize: 12,
+    letterSpacing: 1,
+    textAlign: 'center',
+    paddingVertical: 6,
+  },
   footHint: {
     marginTop: 16,
     textAlign: 'center',

@@ -55,6 +55,9 @@ struct HydrationState {
     var poisonMult: Double
     var ambleAt: TimeInterval?
     var redAt: TimeInterval?
+    var absorbedLastHourMl: Double
+    var absorbCapMl: Double
+    var saturated: Bool
 }
 
 // ————————— Physio constants —————————
@@ -66,6 +69,9 @@ let POISON_WINDOW_MS: Double = 4 * 3_600_000
 let POISON_PEAK_MS: Double = 2 * 3_600_000
 let SLEEP_MULTIPLIER: Double = 0.4
 let STEP_MS: Double = 60_000
+// See TS engine: body absorbs / renally handles ~1 L water per rolling hour.
+let MAX_WATER_ABSORB_ML_PER_H: Double = 1000
+let ABSORB_WINDOW_MS: Double = 3_600_000
 
 func dailyNeedMl(_ p: UserProfile) -> Double {
     if let g = p.dailyGoalOverrideMl { return g }
@@ -226,12 +232,42 @@ private func clamp(_ v: Double, _ lo: Double, _ hi: Double) -> Double {
     return min(hi, max(lo, v))
 }
 
-private func applyEventImpact(_ e: HydrationEvent, _ levelMl: Double, _ cap: Double) -> Double {
+// Rolling hourly absorption cap — parallel array of credited mL per event.
+func creditedWaterMl(_ sorted: [HydrationEvent]) -> [Double] {
+    var credited = [Double](repeating: 0, count: sorted.count)
+    var hist: [(at: TimeInterval, credited: Double)] = []
+    for i in 0..<sorted.count {
+        let e = sorted[i]
+        if e.type != .water && e.type != .electrolytes { continue }
+        var used: Double = 0
+        for h in hist where h.at > e.at - ABSORB_WINDOW_MS && h.at <= e.at {
+            used += h.credited
+        }
+        let remaining = max(0, MAX_WATER_ABSORB_ML_PER_H - used)
+        let cred = min(e.volumeMl ?? 0, remaining)
+        credited[i] = cred
+        hist.append((e.at, cred))
+    }
+    return credited
+}
+
+func waterAbsorbedInWindow(_ sorted: [HydrationEvent], _ at: TimeInterval) -> Double {
+    let credited = creditedWaterMl(sorted)
+    var used: Double = 0
+    for i in 0..<sorted.count {
+        let e = sorted[i]
+        if e.type != .water && e.type != .electrolytes { continue }
+        if e.at > at - ABSORB_WINDOW_MS && e.at <= at { used += credited[i] }
+    }
+    return used
+}
+
+private func applyEventImpact(_ e: HydrationEvent, _ levelMl: Double, _ cap: Double, _ creditedMl: Double) -> Double {
     switch e.type {
     case .water:
-        return clamp(levelMl + (e.volumeMl ?? 0), 0, cap)
+        return clamp(levelMl + creditedMl, 0, cap)
     case .electrolytes:
-        return clamp(levelMl + (e.volumeMl ?? 0) * 1.1, 0, cap)
+        return clamp(levelMl + creditedMl * 1.1, 0, cap)
     case .alcohol:
         return clamp(levelMl + alcoholNetMl(volumeMl: e.volumeMl ?? 0, abv: e.abv ?? 0), 0, cap)
     case .caffeine:
@@ -254,18 +290,21 @@ func computeState(
         return HydrationState(
             levelMl: capNow, dailyNeedMl: capNow, levelPct: 100,
             zone: .green, poisoned: false, poisonUntil: nil,
-            poisonMult: 1, ambleAt: nil, redAt: nil
+            poisonMult: 1, ambleAt: nil, redAt: nil,
+            absorbedLastHourMl: 0, absorbCapMl: MAX_WATER_ABSORB_ML_PER_H, saturated: false
         )
     }
 
+    let credited = creditedWaterMl(sorted)
     let startProfile = effectiveProfile(sorted, sorted.first!.at, baseProfile)
     var levelMl = dailyNeedMl(startProfile)
     var cursor = sorted.first!.at
 
-    for e in sorted {
+    for i in 0..<sorted.count {
+        let e = sorted[i]
         levelMl -= integrateLoss(sorted, cursor, e.at, baseProfile)
         let p = effectiveProfile(sorted, e.at, baseProfile)
-        levelMl = applyEventImpact(e, levelMl, dailyNeedMl(p))
+        levelMl = applyEventImpact(e, levelMl, dailyNeedMl(p), credited[i])
         cursor = e.at
     }
     levelMl -= integrateLoss(sorted, cursor, at, baseProfile)
@@ -277,11 +316,14 @@ func computeState(
     let levelPct = (levelMl / capNow) * 100
     let zone = zoneOf(pct: levelPct, poisoned: poisoned)
     let (ambleAt, redAt) = forecast(events: sorted, at: at, startLevelMl: levelMl, baseProfile: baseProfile)
+    let absorbed = waterAbsorbedInWindow(sorted, at)
 
     return HydrationState(
         levelMl: levelMl, dailyNeedMl: capNow, levelPct: levelPct,
         zone: zone, poisoned: poisoned, poisonUntil: poisonUntil,
-        poisonMult: poisonMult, ambleAt: ambleAt, redAt: redAt
+        poisonMult: poisonMult, ambleAt: ambleAt, redAt: redAt,
+        absorbedLastHourMl: absorbed, absorbCapMl: MAX_WATER_ABSORB_ML_PER_H,
+        saturated: absorbed >= MAX_WATER_ABSORB_ML_PER_H * 0.98
     )
 }
 

@@ -135,6 +135,27 @@ final class HydrationEngineTests: XCTestCase {
         XCTAssertEqual(sweatRateMlPerHour(sex: .male, intensity: .intense, tempC: 30), 1600)
     }
 
+    // Water absorption cap (~1000 mL / rolling hour)
+    func testWaterAbsorptionCap() {
+        let chug: [HydrationEvent] = [
+            HydrationEvent(type: .water, at: ts(12), volumeMl: 2000, abv: nil,
+                           caffeineMg: nil, durationMin: nil, intensity: nil, patch: nil)
+        ]
+        let after = computeState(events: chug, at: ts(12), profile: P70)
+        XCTAssertLessThanOrEqual(after.absorbedLastHourMl, 1000 + 1e-6)
+        XCTAssertTrue(after.saturated)
+
+        let spread: [HydrationEvent] = [
+            HydrationEvent(type: .water, at: ts(8),  volumeMl: 500, abv: nil, caffeineMg: nil, durationMin: nil, intensity: nil, patch: nil),
+            HydrationEvent(type: .water, at: ts(9),  volumeMl: 500, abv: nil, caffeineMg: nil, durationMin: nil, intensity: nil, patch: nil),
+            HydrationEvent(type: .water, at: ts(10), volumeMl: 500, abv: nil, caffeineMg: nil, durationMin: nil, intensity: nil, patch: nil),
+            HydrationEvent(type: .water, at: ts(11), volumeMl: 500, abv: nil, caffeineMg: nil, durationMin: nil, intensity: nil, patch: nil),
+        ]
+        let last = computeState(events: spread, at: ts(11), profile: P70)
+        XCTAssertEqual(last.absorbedLastHourMl, 500, accuracy: 1)
+        XCTAssertFalse(last.saturated)
+    }
+
     // #7
     func testAmbientTemp30Multiplier() {
         var cool = P70; cool.ambientTempC = nil

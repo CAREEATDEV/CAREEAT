@@ -47,12 +47,19 @@ La barre représente des **mL réels** relatifs au besoin quotidien.
 - Température : <18 °C ×0,9 · 18–24 ×1,0 · 25–30 ×1,2 · >30 ×1,4.
 - Sport (sueur, mL/h) : léger 400 · modéré H 800 / F 500 · intense 1200 · intense+chaleur 1600.
 
-**Alcool en 2 couches** :
+**Alcool en 2 couches**, groupé en 3 paliers d'ABV (bouton 1 tap) :
+- Paliers : **LÉGER 2–8°** (400 mL/5 %) · **MOYEN 9–22°** (150 mL/14 %) · **FORT 30–45°** (40 mL/40 %).
 - Couche A — perte nette réelle basée sur la diurèse (constante d'Eggleton) :
-  `net = volume × (1-ABV) − ethanol_g × 10`. Bière 5%/500ml ≈ **neutre voire hydratante**,
-  shot 40%/40ml ≈ **-100 mL**.
+  `net = volume × (1-ABV) − ethanol_g × 10`. Alcool léger ≈ **neutre voire hydratant**,
+  fort ≈ **négatif**.
 - Couche B — fenêtre poison ×1,3 à ×2 selon les grammes d'éthanol, pic à 2h,
   décroissance jusqu'à 0 à 4h. Cumul plafonné à ×3 / 4h.
+
+**Plafond d'absorption** : le corps n'assimile / n'excrète qu'~**1000 mL d'eau
+par heure glissante** (clairance rénale ~778–1043 mL/h ; l'estomac n'est pas le
+goulot). L'eau bue au-delà de ce plafond ne remplit pas la barre (« SATURÉ ») —
+ça reflète la physiologie ET sert de garde-fou hyponatrémie. L'app bloque le log
+d'eau quand la capacité horaire est épuisée.
 
 Le niveau n'est **jamais** stocké. Il est **recalculé à chaque lecture** depuis
 l'historique d'événements horodatés (event sourcing) + profil. C'est ce qui

@@ -11,7 +11,8 @@ struct HydraProvider: TimelineProvider {
         HydraEntry(date: Date(), state: HydrationState(
             levelMl: 1750, dailyNeedMl: 2240, levelPct: 78,
             zone: .green, poisoned: false, poisonUntil: nil,
-            poisonMult: 1, ambleAt: nil, redAt: nil
+            poisonMult: 1, ambleAt: nil, redAt: nil,
+            absorbedLastHourMl: 0, absorbCapMl: 1000, saturated: false
         ))
     }
 
@@ -42,7 +43,8 @@ struct HydraProvider: TimelineProvider {
             s = HydrationState(
                 levelMl: 2240, dailyNeedMl: 2240, levelPct: 100,
                 zone: .green, poisoned: false, poisonUntil: nil,
-                poisonMult: 1, ambleAt: nil, redAt: nil
+                poisonMult: 1, ambleAt: nil, redAt: nil,
+                absorbedLastHourMl: 0, absorbCapMl: 1000, saturated: false
             )
         }
         return HydraEntry(date: date, state: s)

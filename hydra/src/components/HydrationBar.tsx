@@ -48,6 +48,7 @@ export function HydrationBar({ state, segments = 20, height = 44, style }: Props
       <Text style={styles.ml}>
         {Math.round(state.levelMl)} / {Math.round(state.dailyNeedMl)} mL
         {state.poisoned ? `  ·  POISON ×${state.poisonMult.toFixed(2)}` : ''}
+        {state.saturated ? '  ·  SATURÉ' : ''}
       </Text>
     </View>
   );

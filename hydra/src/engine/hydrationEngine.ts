@@ -50,6 +50,11 @@ export interface HydrationState {
   poisonMult: number;
   ambleAt: number | null;
   redAt: number | null;
+  // Water absorbed (credited) in the trailing hour, and whether the body is
+  // saturated — used to stop the user drinking faster than they can absorb.
+  absorbedLastHourMl: number;
+  absorbCapMl: number;
+  saturated: boolean;
 }
 
 // ————————— Physio helpers —————————
@@ -59,6 +64,15 @@ export interface HydrationState {
 export const ML_PER_KG_DAY = 32;
 export const ETHANOL_DENSITY_G_PER_ML = 0.789;
 export const DIURESIS_ML_PER_G_ETHANOL = 10; // Eggleton constant (approx.)
+
+// The body can only absorb / renally handle ~0.8–1.0 L of water per hour;
+// beyond that the excess is simply excreted (and past ~1.5 L/h sustained it
+// becomes a hyponatremia risk). We credit water intake up to this rolling
+// hourly cap — drinking a litre at once does NOT hydrate faster than sipping.
+// Sources: renal free-water clearance ~778–1043 mL/h (ADH suppressed);
+// gastric emptying is not the bottleneck at normal volumes.
+export const MAX_WATER_ABSORB_ML_PER_H = 1000;
+export const ABSORB_WINDOW_MS = 3_600_000;
 
 export function dailyNeedMl(p: UserProfile): number {
   return p.dailyGoalOverrideMl ?? p.weightKg * ML_PER_KG_DAY;
@@ -251,16 +265,51 @@ function caffeineNetMl(e: Extract<HydrationEvent, { type: 'caffeine' }>): number
   return e.volumeMl;
 }
 
+// Credit each water/electrolyte event only up to the rolling hourly
+// absorption cap. Returns an array parallel to `sorted`: the mL that actually
+// count toward the bar for each event (0 for non-water events). Water drunk
+// past the cap within the trailing hour is "overflow" — excreted, not stored.
+export function creditedWaterMl(sorted: HydrationEvent[]): number[] {
+  const credited: number[] = new Array(sorted.length).fill(0);
+  const hist: { at: number; credited: number }[] = [];
+  for (let i = 0; i < sorted.length; i++) {
+    const e = sorted[i];
+    if (e.type !== 'water' && e.type !== 'electrolytes') continue;
+    let used = 0;
+    for (const h of hist) {
+      if (h.at > e.at - ABSORB_WINDOW_MS && h.at <= e.at) used += h.credited;
+    }
+    const remaining = Math.max(0, MAX_WATER_ABSORB_ML_PER_H - used);
+    const cred = Math.min(e.volumeMl, remaining);
+    credited[i] = cred;
+    hist.push({ at: e.at, credited: cred });
+  }
+  return credited;
+}
+
+// How much water (credited) has been absorbed in the hour ending at `at`.
+export function waterAbsorbedInWindow(sorted: HydrationEvent[], at: number): number {
+  const credited = creditedWaterMl(sorted);
+  let used = 0;
+  for (let i = 0; i < sorted.length; i++) {
+    const e = sorted[i];
+    if (e.type !== 'water' && e.type !== 'electrolytes') continue;
+    if (e.at > at - ABSORB_WINDOW_MS && e.at <= at) used += credited[i];
+  }
+  return used;
+}
+
 function applyEventImpact(
   event: HydrationEvent,
   levelMl: number,
-  cap: number
+  cap: number,
+  creditedMl: number
 ): number {
   switch (event.type) {
     case 'water':
-      return clamp(levelMl + event.volumeMl, 0, cap);
+      return clamp(levelMl + creditedMl, 0, cap);
     case 'electrolytes':
-      return clamp(levelMl + event.volumeMl * 1.1, 0, cap);
+      return clamp(levelMl + creditedMl * 1.1, 0, cap);
     case 'alcohol':
       return clamp(levelMl + alcoholNetMl(event.volumeMl, event.abv), 0, cap);
     case 'caffeine':
@@ -297,18 +346,25 @@ export function computeState(
       poisonMult: 1,
       ambleAt: null,
       redAt: null,
+      absorbedLastHourMl: 0,
+      absorbCapMl: MAX_WATER_ABSORB_ML_PER_H,
+      saturated: false,
     };
   }
+
+  // Precompute per-event credited water (rolling hourly absorption cap).
+  const credited = creditedWaterMl(sorted);
 
   // Anchor: level starts at capacity at the first event's timestamp.
   const startProfile = effectiveProfile(sorted, sorted[0].at, baseProfile);
   let levelMl = dailyNeedMl(startProfile);
   let cursor = sorted[0].at;
 
-  for (const e of sorted) {
+  for (let i = 0; i < sorted.length; i++) {
+    const e = sorted[i];
     levelMl -= integrateLoss(sorted, cursor, e.at, baseProfile);
     const p = effectiveProfile(sorted, e.at, baseProfile);
-    levelMl = applyEventImpact(e, levelMl, dailyNeedMl(p));
+    levelMl = applyEventImpact(e, levelMl, dailyNeedMl(p), credited[i]);
     cursor = e.at;
   }
   levelMl -= integrateLoss(sorted, cursor, at, baseProfile);
@@ -326,6 +382,9 @@ export function computeState(
     baseProfile
   );
 
+  const absorbedLastHourMl = waterAbsorbedInWindow(sorted, at);
+  const saturated = absorbedLastHourMl >= MAX_WATER_ABSORB_ML_PER_H * 0.98;
+
   return {
     levelMl,
     dailyNeedMl: capNow,
@@ -336,6 +395,9 @@ export function computeState(
     poisonMult,
     ambleAt,
     redAt,
+    absorbedLastHourMl,
+    absorbCapMl: MAX_WATER_ABSORB_ML_PER_H,
+    saturated,
   };
 }
 
@@ -401,10 +463,22 @@ export const DEFAULT_PRESETS: DrinkPreset[] = [
   { key: 'water', label: 'EAU', kind: 'water', volumeMl: 250 },
   { key: 'water_bottle', label: 'BOUTEILLE', kind: 'water', volumeMl: 500 },
   { key: 'electrolytes', label: 'ÉLECTROLYTES', kind: 'electrolytes', volumeMl: 500 },
-  { key: 'beer_lager', label: 'BIÈRE 5%', kind: 'alcohol', volumeMl: 500, abv: 5 },
-  { key: 'beer_ipa', label: 'IPA 8%', kind: 'alcohol', volumeMl: 500, abv: 8 },
-  { key: 'wine', label: 'VIN 13%', kind: 'alcohol', volumeMl: 150, abv: 13 },
-  { key: 'shot', label: 'SHOT 40%', kind: 'alcohol', volumeMl: 40, abv: 40 },
-  { key: 'cocktail', label: 'COCKTAIL', kind: 'alcohol', volumeMl: 200, abv: 15 },
+  // Alcohol grouped into three tiers by ABV range so a single tap covers a
+  // whole family of drinks. Each carries a representative volume + ABV used by
+  // the two-layer alcohol model. Ranges shown on the buttons.
+  { key: 'alcohol_light', label: 'ALCOOL LÉGER', kind: 'alcohol', volumeMl: 400, abv: 5 },   // 2–8°  bière, cidre
+  { key: 'alcohol_medium', label: 'ALCOOL MOYEN', kind: 'alcohol', volumeMl: 150, abv: 14 }, // 9–22° vin, cocktail
+  { key: 'alcohol_strong', label: 'ALCOOL FORT', kind: 'alcohol', volumeMl: 40, abv: 40 },   // 30–45° spiritueux
   { key: 'coffee', label: 'CAFÉ', kind: 'caffeine', volumeMl: 100, caffeineMg: 90 },
 ];
+
+// How much more water (mL) can still be usefully absorbed right now — used by
+// the app to stop the user drinking faster than their body can handle.
+export function remainingAbsorptionMl(
+  events: HydrationEvent[],
+  at: number = Date.now()
+): number {
+  const sorted = [...events].sort((a, b) => a.at - b.at);
+  const used = waterAbsorbedInWindow(sorted, at);
+  return Math.max(0, MAX_WATER_ABSORB_ML_PER_H - used);
+}

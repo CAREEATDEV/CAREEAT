@@ -7,6 +7,7 @@ import {
   ethanolGrams,
   HydrationEvent,
   peakPoisonExtra,
+  remainingAbsorptionMl,
   sweatRateMlPerHour,
   UserProfile,
   zoneOf,
@@ -226,6 +227,48 @@ describe('zone thresholds', () => {
     expect(zoneOf(25, false)).toBe('amber');
     expect(zoneOf(24, false)).toBe('red');
     expect(zoneOf(80, true)).toBe('poison');
+  });
+});
+
+describe('water absorption cap (~1000 mL / rolling hour)', () => {
+  it('a single 2 L chug only credits ~1000 mL to the bar', () => {
+    // Drain a big deficit first so there is room, then chug 2 L at once.
+    const events: HydrationEvent[] = [
+      { type: 'water', at: ts(6), volumeMl: 1 }, // anchor early, drain down
+      { type: 'water', at: ts(12), volumeMl: 2000 },
+    ];
+    const before = computeState(events, ts(12), P70); // just before the chug is applied? it's applied at ts(12)
+    // Right after the chug: level rose by at most the cap (1000), not 2000.
+    const after = computeState(events, ts(12, 0), P70);
+    expect(after.absorbedLastHourMl).toBeLessThanOrEqual(1000 + 1e-6);
+    expect(after.saturated).toBe(true);
+    // The excess 1000 mL is overflow — not stored.
+    expect(after.levelMl).toBeLessThan(P70.weightKg * 32 + 1);
+  });
+
+  it('same 2 L split into 4×500 over 4 h is fully credited', () => {
+    const chug: HydrationEvent[] = [
+      { type: 'water', at: ts(8), volumeMl: 2000 },
+    ];
+    const spread: HydrationEvent[] = [
+      { type: 'water', at: ts(8), volumeMl: 500 },
+      { type: 'water', at: ts(9), volumeMl: 500 },
+      { type: 'water', at: ts(10), volumeMl: 500 },
+      { type: 'water', at: ts(11), volumeMl: 500 },
+    ];
+    // Compare credited water in each hour: spread never exceeds the cap and
+    // so every mL counts, chug loses half to overflow.
+    const chugState = computeState(chug, ts(8), P70);
+    expect(chugState.absorbedLastHourMl).toBeLessThanOrEqual(1000 + 1e-6);
+    const spreadLast = computeState(spread, ts(11), P70);
+    expect(spreadLast.absorbedLastHourMl).toBeCloseTo(500, 0);
+  });
+
+  it('remainingAbsorptionMl drops after drinking and refills over an hour', () => {
+    const events: HydrationEvent[] = [{ type: 'water', at: ts(10), volumeMl: 800 }];
+    expect(remainingAbsorptionMl(events, ts(10, 1))).toBeCloseTo(200, 0);
+    // an hour later the window has rolled past → full capacity again
+    expect(remainingAbsorptionMl(events, ts(11, 1))).toBeCloseTo(1000, 0);
   });
 });
 
