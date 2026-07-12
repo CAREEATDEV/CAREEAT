@@ -1,5 +1,6 @@
 import WidgetKit
 import SwiftUI
+import AppIntents
 
 struct HydraEntry: TimelineEntry {
     let date: Date
@@ -54,6 +55,7 @@ struct HydraProvider: TimelineProvider {
 struct HydraBarView: View {
     let state: HydrationState
     let segments: Int = 14
+    @Environment(\.widgetFamily) private var family
 
     private var zoneColor: Color {
         switch state.zone {
@@ -105,7 +107,30 @@ struct HydraBarView: View {
                 Text("→\(countdown)").font(.system(size: 9, weight: .regular, design: .monospaced))
                     .foregroundColor(.gray)
             }
+
+            // Interactive "+ EAU" button (iOS 17+). The home-screen systemSmall
+            // has the room for a proper button; the lock-screen rectangular is
+            // tiny + monochrome, so we keep a compact tappable target there.
+            if #available(iOS 17.0, *) {
+                Button(intent: LogWaterIntent(volumeMl: 250)) {
+                    if family == .systemSmall {
+                        Text("＋ EAU · 250 mL")
+                            .font(.system(size: 11, weight: .heavy))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                    } else {
+                        Text("＋ EAU").font(.system(size: 9, weight: .heavy))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 3)
+                    }
+                }
+                .buttonStyle(.plain)
+                .tint(zoneColor)
+                .padding(.top, 2)
+            }
         }
+        // Fallback for iOS < 17 (and for the whole-widget tap): open the app.
+        .widgetURL(URL(string: "hydra://home"))
         .containerBackground(for: .widget) { Color.black }
     }
 }
@@ -126,5 +151,9 @@ struct HydraLockWidget: Widget {
 struct HydraWidgetBundle: WidgetBundle {
     var body: some Widget {
         HydraLockWidget()
+        // The lock-screen / Control Center "+ Eau" button (iOS 18+).
+        if #available(iOS 18.0, *) {
+            HydraWaterControl()
+        }
     }
 }

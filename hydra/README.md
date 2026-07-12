@@ -127,6 +127,24 @@ Pour **voir le widget** dans le simu :
 4. Reviens dans l'app, tape **BIÈRE** : dans les 15 minutes suivantes le
    widget passe en violet et le countdown se raccourcit (`WidgetCenter.reloadAllTimelines()` est appelé automatiquement après chaque log).
 
+## Widget interactif (boutons « + Eau »)
+
+Boutons tappables qui loguent un verre **sans ouvrir l'app**, via App Intents :
+
+- `HydraIntents.swift` — `LogWaterIntent` écrit un événement `water` dans l'App
+  Group (même chemin que l'app) puis `WidgetCenter.reloadAllTimelines()`. Respecte
+  le plafond d'absorption (no-op si saturé).
+- `HydraWidget.swift` — bouton `＋ EAU` dans le widget (`Button(intent:)`),
+  **iOS 17+**. Sur `systemSmall` (home, couleur) il a de la place ; sur
+  `accessoryRectangular` (lock, monochrome, minuscule) il reste compact.
+  Fallback iOS < 17 : le tap ouvre l'app (`widgetURL`).
+- `HydraControl.swift` — un **Control** `+ Eau` posable en bas de l'écran
+  verrouillé / Centre de contrôle, **iOS 18+** (log en 1 tap sans déverrouiller).
+
+⚠️ **Requis build** : `ControlWidget` (le Control) exige le **SDK iOS 18 / Xcode 16**.
+Si tu compiles avec un Xcode plus ancien, retire `HydraControl.swift` et son entrée
+dans `HydraWidgetBundle`. Le bouton in-widget (iOS 17) et le fallback restent OK.
+
 ## Prod
 
 ```bash
