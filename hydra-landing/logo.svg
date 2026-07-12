@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 108" width="100" height="108" role="img" aria-label="HYDRA">
+  <defs>
+    <linearGradient id="hydraGreen" x1="0" y1="0" x2="0.25" y2="1">
+      <stop offset="0" stop-color="#5CEE92"/>
+      <stop offset="1" stop-color="#2ECC6A"/>
+    </linearGradient>
+    <clipPath id="hydraDrop">
+      <path d="M50 5 C 62 30 84 51 84 69 A 34 34 0 1 1 16 69 C 16 51 38 30 50 5 Z"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#hydraDrop)">
+    <rect x="0" y="0" width="100" height="108" fill="#0C1015"/>
+    <!-- segments vides (haut) -->
+    <rect x="-2" y="12" width="104" height="14" fill="#191E25"/>
+    <rect x="-2" y="28" width="104" height="14" fill="#191E25"/>
+    <!-- segments pleins (bas) -->
+    <rect x="-2" y="44" width="104" height="14" fill="url(#hydraGreen)"/>
+    <rect x="-2" y="60" width="104" height="14" fill="url(#hydraGreen)"/>
+    <rect x="-2" y="76" width="104" height="14" fill="url(#hydraGreen)"/>
+    <rect x="-2" y="92" width="104" height="16" fill="url(#hydraGreen)"/>
+  </g>
+  <path d="M50 5 C 62 30 84 51 84 69 A 34 34 0 1 1 16 69 C 16 51 38 30 50 5 Z"
+        fill="none" stroke="#454B54" stroke-width="1.6"/>
+</svg>
