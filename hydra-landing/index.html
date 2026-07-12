@@ -62,6 +62,7 @@
   .demo-btns button.beer{border-color:var(--amber);color:var(--amber)}
   .demo-btns button.shot{border-color:var(--red);color:var(--red)}
   .demo-hint{text-align:center;color:var(--dim);font-size:11px;margin-top:12px}
+  .demo-ml{text-align:center;color:var(--dim);font-family:'IBM Plex Mono';font-size:11px;margin-top:14px;letter-spacing:.05em}
 
   /* CONCEPT */
   .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;margin-top:36px}
@@ -142,12 +143,13 @@
           <span class="cd" id="countdown">rouge dans 5h20</span>
         </div>
       </div>
+      <div class="demo-ml" id="ml">1747 / 2240 mL · besoin = 70 kg × 32</div>
       <div class="demo-btns">
         <button class="water" onclick="demoDrink('water')">+ EAU</button>
-        <button class="beer" onclick="demoDrink('beer')">+ BIÈRE</button>
-        <button class="shot" onclick="demoDrink('shot')">+ SHOT</button>
+        <button class="beer" onclick="demoDrink('beer')">+ BIÈRE 5%</button>
+        <button class="shot" onclick="demoDrink('shot')">+ SHOT 40%</button>
       </div>
-      <div class="demo-hint">La démo tourne en accéléré (1 s = 5 min). Dans l'app, c'est ta vraie journée.</div>
+      <div class="demo-hint" id="hint">La démo tourne en accéléré (1 s = 5 min). Modèle physiologique réel : la bière est presque neutre, mais elle t'empoisonne.</div>
     </div>
   </div>
 </section>
@@ -155,15 +157,19 @@
 <!-- ============ CONCEPT ============ -->
 <section>
   <div class="kicker">LE CONCEPT</div>
-  <h2>Brutal. Minimaliste. Efficace.</h2>
+  <h2>Basé sur ta vraie physiologie.</h2>
   <div class="cards">
+    <div class="card">
+      <h3>⌁ Moteur physiologique</h3>
+      <p>Pas de malus au pif. Ton besoin = poids × 32 mL. La sueur dépend de ton sexe et de l'intensité. L'alcool est calculé en grammes d'éthanol réels. Chaque mL compte.</p>
+    </div>
+    <div class="card poison">
+      <h3>☠ Alcool, honnête</h3>
+      <p>La bière 5% ? Presque neutre, voire hydratante. Le shot 40% ? Négatif. MAIS tout alcool ouvre une fenêtre « poison » : drain accéléré jusqu'à ×3, jusqu'à 4h. La barre devient violette.</p>
+    </div>
     <div class="card">
       <h3>▮▮▮ Widget lock screen</h3>
       <p>La barre vit sur ton écran verrouillé. Tu la vois 100 fois par jour, que tu le veuilles ou non. C'est le but.</p>
-    </div>
-    <div class="card poison">
-      <h3>☠ Debuff poison</h3>
-      <p>Bière, vin, shot : la barre prend un hit direct ET se vide 3× plus vite pendant 90 à 120 minutes. Comme dans un vrai RPG.</p>
     </div>
     <div class="card red">
       <h3>⚠ Notifications sèches</h3>
@@ -232,12 +238,34 @@
 </footer>
 
 <script>
-// ————— Mini moteur de démo (version simplifiée du vrai moteur de l'app) —————
+// ————— Moteur de démo — fidèle au vrai hydrationEngine.ts (modèle physio v2) —————
+// mL réels, ancrés sur le besoin quotidien (poids × 32). Alcool en 2 couches :
+// perte nette honnête (diurèse d'Eggleton) + fenêtre poison triangulaire.
 const SEGMENTS = 14;
-let level = 78;
-let poisonUntil = 0;          // timestamp ms
-const SPEED = 5 * 60;         // 1s réelle = 5 min simulées
-const DRAIN_PER_SIM_MIN = 100 / (10 * 60);   // 100% en 10h éveillées
+const DAILY_NEED = 2240;               // 70 kg × 32 mL
+const BASE_DRAIN_ML_H = DAILY_NEED / 16; // 140 mL/h sur 16 h d'éveil
+const SPEED = 5 * 60;                  // 1 s réelle = 5 min simulées
+const POISON_WINDOW = 4 * 3600 * 1000; // ms simulés
+const POISON_PEAK = 2 * 3600 * 1000;
+
+let levelMl = 0.78 * DAILY_NEED;
+let simMs = 0;                         // temps simulé écoulé
+let alcoholEvents = [];                // { at, ethanolG }
+
+// helpers identiques au moteur TS
+const ethanolGrams = (v, abv) => v * (abv / 100) * 0.789;
+const alcoholNetMl = (v, abv) => v * (1 - abv / 100) - ethanolGrams(v, abv) * 10;
+function peakPoisonExtra(g) { g = Math.max(10, Math.min(30, g)); return 0.3 + ((g - 10) / 20) * 0.7; }
+function poisonMultAt(t) {
+  let extra = 0;
+  for (const e of alcoholEvents) {
+    const dt = t - e.at;
+    if (dt < 0 || dt > POISON_WINDOW) continue;
+    const rise = dt / POISON_PEAK, fall = (POISON_WINDOW - dt) / POISON_PEAK;
+    extra += peakPoisonExtra(e.ethanolG) * Math.min(rise, fall);
+  }
+  return Math.min(3, 1 + extra);
+}
 
 const bar = document.getElementById('bar');
 for (let i = 0; i < SEGMENTS; i++) {
@@ -247,10 +275,11 @@ for (let i = 0; i < SEGMENTS; i++) {
 }
 const segs = [...bar.children];
 
-function zoneColor() {
-  if (Date.now() < poisonUntil) return 'poison';
-  if (level < 25) return 'red';
-  if (level <= 55) return 'amber';
+function zoneColor(mult) {
+  if (mult > 1) return 'poison';
+  const pct = levelMl / DAILY_NEED * 100;
+  if (pct < 25) return 'red';
+  if (pct <= 55) return 'amber';
   return 'green';
 }
 function statusText(z) {
@@ -259,40 +288,47 @@ function statusText(z) {
 const CSSC = {green:'var(--green)', amber:'var(--amber)', red:'var(--red)', poison:'var(--poison)'};
 
 function render() {
-  const z = zoneColor();
+  const mult = poisonMultAt(simMs);
+  const z = zoneColor(mult);
+  const pct = levelMl / DAILY_NEED * 100;
   bar.className = 'bar ' + z;
-  const filled = Math.round(level / 100 * SEGMENTS);
+  const filled = Math.round(pct / 100 * SEGMENTS);
   segs.forEach((s, i) => s.classList.toggle('on', i < filled));
-  document.getElementById('pct').textContent = Math.round(level) + '%';
+  document.getElementById('pct').textContent = Math.round(pct) + '%';
   document.getElementById('pct').style.color = CSSC[z];
   const st = document.getElementById('status');
   st.textContent = statusText(z);
   st.style.color = CSSC[z];
-  // countdown vers rouge (simulé)
-  const mult = z === 'poison' ? 3 : 1;
-  const minToRed = Math.max(0, (level - 25) / (DRAIN_PER_SIM_MIN * mult));
+  document.getElementById('ml').textContent =
+    Math.round(levelMl) + ' / ' + DAILY_NEED + ' mL' + (mult > 1 ? '  ·  POISON ×' + mult.toFixed(2) : '  ·  besoin = 70 kg × 32');
+  // countdown vers rouge (zone rouge = 25% = 560 mL)
+  const redMl = DAILY_NEED * 0.25;
+  const drainPerMin = BASE_DRAIN_ML_H / 60 * mult;
+  const minToRed = Math.max(0, (levelMl - redMl) / drainPerMin);
   const h = Math.floor(minToRed / 60), m = Math.round(minToRed % 60);
   document.getElementById('countdown').textContent =
-    level <= 25 ? 'ZONE ROUGE' : 'rouge dans ' + (h > 0 ? h + 'h' + String(m).padStart(2,'0') : m + 'min');
+    levelMl <= redMl ? 'ZONE ROUGE' : 'rouge dans ' + (h > 0 ? h + 'h' + String(m).padStart(2,'0') : m + 'min');
 }
 
 function demoDrink(kind) {
-  if (kind === 'water') level = Math.min(100, level + 14);
-  if (kind === 'beer') { level = Math.max(0, level - 8);  addPoison(90); }
-  if (kind === 'shot') { level = Math.max(0, level - 15); addPoison(120); }
+  if (kind === 'water') levelMl = Math.min(DAILY_NEED, levelMl + 250);
+  if (kind === 'beer') {
+    levelMl = Math.min(DAILY_NEED, Math.max(0, levelMl + alcoholNetMl(500, 5)));
+    alcoholEvents.push({ at: simMs, ethanolG: ethanolGrams(500, 5) });
+  }
+  if (kind === 'shot') {
+    levelMl = Math.min(DAILY_NEED, Math.max(0, levelMl + alcoholNetMl(40, 40)));
+    alcoholEvents.push({ at: simMs, ethanolG: ethanolGrams(40, 40) });
+  }
   render();
-}
-function addPoison(simMinutes) {
-  // durées cumulées, plafonnées à 4h simulées — comme le vrai moteur
-  const realMs = simMinutes / SPEED * 60 * 1000;
-  const capMs = 240 / SPEED * 60 * 1000;
-  const base = Math.max(Date.now(), poisonUntil);
-  poisonUntil = Math.min(base + realMs, Date.now() + capMs);
 }
 
 setInterval(() => {
-  const mult = Date.now() < poisonUntil ? 3 : 1;
-  level = Math.max(0, level - DRAIN_PER_SIM_MIN * mult * SPEED / 60);
+  simMs += SPEED * 1000;
+  const mult = poisonMultAt(simMs);
+  levelMl = Math.max(0, levelMl - BASE_DRAIN_ML_H / 3600000 * mult * SPEED * 1000);
+  // purge des fenêtres poison expirées (garde la démo légère)
+  alcoholEvents = alcoholEvents.filter((e) => simMs - e.at <= POISON_WINDOW);
   render();
 }, 1000);
 
