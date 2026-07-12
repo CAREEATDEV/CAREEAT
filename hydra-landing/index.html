@@ -383,7 +383,9 @@
 
 <script>
 // ————— Mockup iPhone — moteur fidèle au vrai hydrationEngine.ts (physio v2) —————
-const mock = document.getElementById('mkPhone');
+// `mock` = le conteneur entier (les chips/toggle sont HORS du téléphone) ;
+// les querySelectorAll doivent donc porter sur .mock, pas sur #mkPhone.
+const mock = document.querySelector('.mock');
 const SEG = 14, NEED = 2240, CAP = 1000;
 const STATES = {
   green:  { pct:78, cd:'→ 5h20', color:'#3EE07A', poison:false },
