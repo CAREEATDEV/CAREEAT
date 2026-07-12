@@ -1,8 +1,8 @@
 import * as Notifications from 'expo-notifications';
 import {
   computeState,
-  EngineSettings,
   HydrationEvent,
+  UserProfile,
 } from '../engine/hydrationEngine';
 
 Notifications.setNotificationHandler({
@@ -13,15 +13,13 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// Cancel and reschedule the two "you're drying" / "critical" notifications.
-// Called on every event via the store — cheap.
 export async function rescheduleNotifications(
   events: HydrationEvent[],
-  settings: EngineSettings
+  profile: UserProfile
 ): Promise<void> {
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
-    const state = computeState(events, Date.now(), settings);
+    const state = computeState(events, Date.now(), profile);
     const nowMs = Date.now();
     if (state.ambleAt && state.ambleAt > nowMs) {
       await Notifications.scheduleNotificationAsync({
@@ -42,7 +40,7 @@ export async function rescheduleNotifications(
       });
     }
   } catch {
-    // Notifications not granted / simulator: ignore silently.
+    // Simulator / permission denied: swallow.
   }
 }
 

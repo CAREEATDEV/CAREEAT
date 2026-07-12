@@ -2,10 +2,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import {
-  DEFAULT_SETTINGS,
-  EngineSettings,
+  DEFAULT_PROFILE,
+  DEFAULT_PRESETS,
+  DrinkPreset,
   HydrationEvent,
-  DrinkKind,
+  SportIntensity,
+  UserProfile,
 } from '../engine/hydrationEngine';
 import {
   reloadWidgetTimelines,
@@ -15,12 +17,15 @@ import { rescheduleNotifications } from '../notifications/scheduler';
 
 interface HydraState {
   events: HydrationEvent[];
-  settings: EngineSettings;
+  profile: UserProfile;
+  presets: DrinkPreset[];
   hydrated: boolean;
-  log: (kind: DrinkKind) => Promise<void>;
+  logPreset: (key: string) => Promise<void>;
+  logCustomDrink: (kind: 'water' | 'electrolytes' | 'alcohol' | 'caffeine', args: { volumeMl: number; abv?: number; caffeineMg?: number }) => Promise<void>;
+  logSport: (durationMin: number, intensity: SportIntensity) => Promise<void>;
   undo: () => Promise<void>;
   deleteEvent: (at: number) => Promise<void>;
-  updateSettings: (patch: Partial<EngineSettings>) => Promise<void>;
+  updateProfile: (patch: Partial<UserProfile>) => Promise<void>;
   _sync: () => Promise<void>;
 }
 
@@ -28,56 +33,81 @@ export const useHydration = create<HydraState>()(
   persist(
     (set, get) => ({
       events: [],
-      settings: DEFAULT_SETTINGS,
+      profile: DEFAULT_PROFILE,
+      presets: DEFAULT_PRESETS,
       hydrated: false,
-      async log(kind) {
+
+      async logPreset(key) {
+        const preset = get().presets.find((p) => p.key === key);
+        if (!preset) return;
         const at = Date.now();
-        const e: HydrationEvent = { type: 'drink', kind, at };
+        let e: HydrationEvent;
+        if (preset.kind === 'water') e = { type: 'water', at, volumeMl: preset.volumeMl };
+        else if (preset.kind === 'electrolytes') e = { type: 'electrolytes', at, volumeMl: preset.volumeMl };
+        else if (preset.kind === 'alcohol') e = { type: 'alcohol', at, volumeMl: preset.volumeMl, abv: preset.abv ?? 5 };
+        else e = { type: 'caffeine', at, volumeMl: preset.volumeMl, caffeineMg: preset.caffeineMg };
         set({ events: [...get().events, e] });
         await get()._sync();
       },
+
+      async logCustomDrink(kind, args) {
+        const at = Date.now();
+        let e: HydrationEvent;
+        if (kind === 'alcohol') e = { type: 'alcohol', at, volumeMl: args.volumeMl, abv: args.abv ?? 5 };
+        else if (kind === 'caffeine') e = { type: 'caffeine', at, volumeMl: args.volumeMl, caffeineMg: args.caffeineMg };
+        else if (kind === 'electrolytes') e = { type: 'electrolytes', at, volumeMl: args.volumeMl };
+        else e = { type: 'water', at, volumeMl: args.volumeMl };
+        set({ events: [...get().events, e] });
+        await get()._sync();
+      },
+
+      async logSport(durationMin, intensity) {
+        const at = Date.now();
+        set({
+          events: [...get().events, { type: 'sport', at, durationMin, intensity }],
+        });
+        await get()._sync();
+      },
+
       async undo() {
         const evs = get().events;
-        // remove the last drink event (settings stay)
         for (let i = evs.length - 1; i >= 0; i--) {
-          if (evs[i].type === 'drink') {
-            const next = [...evs.slice(0, i), ...evs.slice(i + 1)];
-            set({ events: next });
+          if (evs[i].type !== 'profile') {
+            set({ events: [...evs.slice(0, i), ...evs.slice(i + 1)] });
             await get()._sync();
             return;
           }
         }
       },
+
       async deleteEvent(at) {
         set({ events: get().events.filter((e) => e.at !== at) });
         await get()._sync();
       },
-      async updateSettings(patch) {
-        const next = { ...get().settings, ...patch };
-        // Also push a settings event into the log so historical recomputes stay
-        // accurate — the engine reads the latest settings event ≤ t.
-        const evt: HydrationEvent = {
-          type: 'settings',
-          at: Date.now(),
-          settings: patch,
-        };
-        set({ settings: next, events: [...get().events, evt] });
+
+      async updateProfile(patch) {
+        const next = { ...get().profile, ...patch };
+        // Also log a profile-change event so historical recomputes remain
+        // faithful (e.g. weight change kicks in from that timestamp).
+        const evt: HydrationEvent = { type: 'profile', at: Date.now(), patch };
+        set({ profile: next, events: [...get().events, evt] });
         await get()._sync();
       },
+
       async _sync() {
-        const { events, settings } = get();
+        const { events, profile } = get();
         await writeSharedSnapshot({
-          version: 1,
+          version: 2,
           updatedAt: Date.now(),
           events,
-          settings,
+          profile,
         });
         await reloadWidgetTimelines();
-        await rescheduleNotifications(events, settings);
+        await rescheduleNotifications(events, profile);
       },
     }),
     {
-      name: 'hydra.v1',
+      name: 'hydra.v2',
       storage: createJSONStorage(() => AsyncStorage),
       onRehydrateStorage: () => (state) => {
         state?._sync().catch(() => {});

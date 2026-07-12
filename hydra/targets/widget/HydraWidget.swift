@@ -9,43 +9,43 @@ struct HydraEntry: TimelineEntry {
 struct HydraProvider: TimelineProvider {
     func placeholder(in context: Context) -> HydraEntry {
         HydraEntry(date: Date(), state: HydrationState(
-            level: 78, zone: .green, poisoned: false,
-            poisonUntil: nil, ambleAt: nil, redAt: nil
+            levelMl: 1750, dailyNeedMl: 2240, levelPct: 78,
+            zone: .green, poisoned: false, poisonUntil: nil,
+            poisonMult: 1, ambleAt: nil, redAt: nil
         ))
     }
 
     func getSnapshot(in context: Context, completion: @escaping (HydraEntry) -> Void) {
-        completion(currentEntry(at: Date()))
+        completion(entry(at: Date()))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<HydraEntry>) -> Void) {
         let now = Date()
         var entries: [HydraEntry] = []
-        let stepSec: TimeInterval = 15 * 60      // 15 min
-        let horizonSec: TimeInterval = 6 * 3600  // 6h
+        let stepSec: TimeInterval = 15 * 60
+        let horizonSec: TimeInterval = 6 * 3600
         var i = 0.0
         while i <= horizonSec {
-            let d = now.addingTimeInterval(i)
-            entries.append(currentEntry(at: d))
+            entries.append(entry(at: now.addingTimeInterval(i)))
             i += stepSec
         }
-        // Ask WidgetKit to come back for a fresh timeline at the end of the horizon.
         completion(Timeline(entries: entries, policy: .after(now.addingTimeInterval(horizonSec))))
     }
 
-    private func currentEntry(at date: Date) -> HydraEntry {
+    private func entry(at date: Date) -> HydraEntry {
         let snap = loadSharedSnapshot()
         let ms = date.timeIntervalSince1970 * 1000
-        let state: HydrationState
+        let s: HydrationState
         if let snap = snap {
-            state = computeState(events: snap.events, at: ms, settings: snap.settings)
+            s = computeState(events: snap.events, at: ms, profile: snap.profile)
         } else {
-            state = HydrationState(
-                level: 100, zone: .green, poisoned: false,
-                poisonUntil: nil, ambleAt: nil, redAt: nil
+            s = HydrationState(
+                levelMl: 2240, dailyNeedMl: 2240, levelPct: 100,
+                zone: .green, poisoned: false, poisonUntil: nil,
+                poisonMult: 1, ambleAt: nil, redAt: nil
             )
         }
-        return HydraEntry(date: date, state: state)
+        return HydraEntry(date: date, state: s)
     }
 }
 
@@ -55,10 +55,10 @@ struct HydraBarView: View {
 
     private var zoneColor: Color {
         switch state.zone {
-        case .poison: return Color(red: 0.706, green: 0.298, blue: 1.0)   // #B44CFF
-        case .red:    return Color(red: 1.0,   green: 0.231, blue: 0.290) // #FF3B4A
-        case .amber:  return Color(red: 1.0,   green: 0.690, blue: 0.125) // #FFB020
-        case .green:  return Color(red: 0.243, green: 0.878, blue: 0.478) // #3EE07A
+        case .poison: return Color(red: 0.706, green: 0.298, blue: 1.0)
+        case .red:    return Color(red: 1.0,   green: 0.231, blue: 0.290)
+        case .amber:  return Color(red: 1.0,   green: 0.690, blue: 0.125)
+        case .green:  return Color(red: 0.243, green: 0.878, blue: 0.478)
         }
     }
 
@@ -80,12 +80,12 @@ struct HydraBarView: View {
     }
 
     var body: some View {
-        let filled = Int((state.level / 100.0) * Double(segments))
+        let filled = Int((state.levelPct / 100.0) * Double(segments))
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
                 Text("HYDRA").font(.system(size: 10, weight: .bold, design: .monospaced))
                 Spacer()
-                Text("\(Int(state.level))%")
+                Text("\(Int(state.levelPct))%")
                     .font(.system(size: 12, weight: .bold, design: .monospaced))
                     .foregroundColor(zoneColor)
             }

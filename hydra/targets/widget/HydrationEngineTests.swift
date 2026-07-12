@@ -1,88 +1,172 @@
-// Swift-side tests mirroring src/engine/hydrationEngine.test.ts. Run these
-// from Xcode's Test navigator after prebuild opens the workspace, or via
-// `xcodebuild test -scheme HydraWidget` if the target is exposed.
+// Swift-side tests mirroring src/engine/hydrationEngine.test.ts (v2 physio).
+// Run from Xcode's Test navigator (cmd+U) or:
+//   xcodebuild test -workspace ios/hydra.xcworkspace -scheme HydraWidget \
+//     -destination 'platform=iOS Simulator,name=iPhone 15 Pro'
 
 import XCTest
 
 final class HydrationEngineTests: XCTestCase {
-    // 2026-06-15 10:00 in *local* time — same anchor as the JS tests.
     private func ts(_ h: Int, _ m: Int = 0) -> TimeInterval {
         var c = DateComponents()
         c.year = 2026; c.month = 6; c.day = 15; c.hour = h; c.minute = m
-        let d = Calendar.current.date(from: c)!
-        return d.timeIntervalSince1970 * 1000
+        return Calendar.current.date(from: c)!.timeIntervalSince1970 * 1000
+    }
+    private let P70 = UserProfile(
+        weightKg: 70, sex: .male, awakeHours: 16,
+        sleepStartHour: 23, sleepEndHour: 7,
+        ambientTempC: nil, altitudeM: 0, dailyGoalOverrideMl: nil
+    )
+    private func anchor(_ at: TimeInterval) -> HydrationEvent {
+        HydrationEvent(type: .water, at: at, volumeMl: 1, abv: nil,
+                       caffeineMg: nil, durationMin: nil, intensity: nil, patch: nil)
     }
 
-    func testZoneOf() {
-        XCTAssertEqual(zoneOf(100, poisoned: false), .green)
-        XCTAssertEqual(zoneOf(56, poisoned: false), .green)
-        XCTAssertEqual(zoneOf(55, poisoned: false), .amber)
-        XCTAssertEqual(zoneOf(25, poisoned: false), .amber)
-        XCTAssertEqual(zoneOf(24, poisoned: false), .red)
-        XCTAssertEqual(zoneOf(80, poisoned: true), .poison)
+    func testDailyNeed70kg() {
+        XCTAssertEqual(dailyNeedMl(P70), 2240, accuracy: 1e-6)
+        XCTAssertEqual(baseDrainMlPerHour(P70), 140, accuracy: 1e-6)
     }
 
-    func testNoEventsLevel100() {
-        let s = computeState(events: [], at: ts(10))
-        XCTAssertEqual(s.level, 100)
-        XCTAssertEqual(s.zone, .green)
+    // #1
+    func testPassiveDrain2h() {
+        let evs = [anchor(ts(10))]
+        let before = computeState(events: evs, at: ts(10), profile: P70)
+        let after = computeState(events: evs, at: ts(12), profile: P70)
+        let drop = before.levelMl - after.levelMl
+        XCTAssertGreaterThan(drop, 275)
+        XCTAssertLessThan(drop, 285)
     }
 
-    func testDrainOneHour() {
-        let events: [HydrationEvent] = [
-            HydrationEvent(type: .drink, kind: .water, at: ts(10), volumeMl: nil, settings: nil)
+    // #2
+    func testSleepMultiplier() {
+        let day = computeState(events: [anchor(ts(10))], at: ts(10), profile: P70).levelMl
+                - computeState(events: [anchor(ts(10))], at: ts(12), profile: P70).levelMl
+        let night = computeState(events: [anchor(ts(22))], at: ts(24 + 1), profile: P70).levelMl
+                  - computeState(events: [anchor(ts(22))], at: ts(24 + 3), profile: P70).levelMl
+        let ratio = night / day
+        XCTAssertGreaterThan(ratio, 0.38)
+        XCTAssertLessThan(ratio, 0.42)
+    }
+
+    // #3
+    func testBeer5pctNeutralAndPoison() {
+        XCTAssertGreaterThan(alcoholNetMl(volumeMl: 500, abv: 5), 270)
+        XCTAssertLessThan(alcoholNetMl(volumeMl: 500, abv: 5), 285)
+        let g = ethanolGrams(volumeMl: 500, abv: 5)
+        XCTAssertGreaterThan(1 + peakPoisonExtra(g), 1.5)
+        XCTAssertLessThan(1 + peakPoisonExtra(g), 1.75)
+
+        let evs: [HydrationEvent] = [
+            anchor(ts(10)),
+            HydrationEvent(type: .alcohol, at: ts(10, 1), volumeMl: 500, abv: 5,
+                           caffeineMg: nil, durationMin: nil, intensity: nil, patch: nil)
         ]
-        let start = computeState(events: events, at: ts(10))
-        let hour = computeState(events: events, at: ts(11))
-        let delta = start.level - hour.level
-        XCTAssertGreaterThan(delta, 9.5)
-        XCTAssertLessThan(delta, 10.5)
-    }
-
-    func testNoDrainDuringSleep() {
-        let events: [HydrationEvent] = [
-            HydrationEvent(type: .drink, kind: .water, at: ts(22), volumeMl: nil, settings: nil)
-        ]
-        let mid = computeState(events: events, at: ts(24 + 1))
-        let later = computeState(events: events, at: ts(24 + 5))
-        XCTAssertEqual(mid.level, later.level, accuracy: 0.01)
-    }
-
-    func testBeerPoisonsAnd8Percent() {
-        let events: [HydrationEvent] = [
-            HydrationEvent(type: .drink, kind: .water, at: ts(10), volumeMl: nil, settings: nil),
-            HydrationEvent(type: .drink, kind: .beer, at: ts(10, 1), volumeMl: nil, settings: nil),
-        ]
-        let s = computeState(events: events, at: ts(10, 1))
+        let s = computeState(events: evs, at: ts(10, 2), profile: P70)
         XCTAssertTrue(s.poisoned)
-        XCTAssertLessThan(s.level, 100 - 8 + 0.5)
-        XCTAssertGreaterThan(s.level, 100 - 8 - 2)
+        XCTAssertGreaterThan(s.levelMl, 2200)
     }
 
-    func testPoison3xDrain() {
-        let events: [HydrationEvent] = [
-            HydrationEvent(type: .drink, kind: .beer, at: ts(10), volumeMl: nil, settings: nil)
+    // #4
+    func testShotNegativeAndPoison() {
+        XCTAssertLessThan(alcoholNetMl(volumeMl: 40, abv: 40), -95)
+        XCTAssertGreaterThan(alcoholNetMl(volumeMl: 40, abv: 40), -115)
+
+        let base: [HydrationEvent] = [anchor(ts(10))]
+        let withShot: [HydrationEvent] = [
+            anchor(ts(10)),
+            HydrationEvent(type: .alcohol, at: ts(10, 1), volumeMl: 40, abv: 40,
+                           caffeineMg: nil, durationMin: nil, intensity: nil, patch: nil)
         ]
-        let hour = computeState(events: events, at: ts(11))
-        XCTAssertLessThan(hour.level, 100 - 8 - 25)
-        XCTAssertGreaterThan(hour.level, 100 - 8 - 35)
+        let bBase = computeState(events: base, at: ts(10, 2), profile: P70)
+        let bShot = computeState(events: withShot, at: ts(10, 2), profile: P70)
+        XCTAssertTrue(bShot.poisoned)
+        if let br = bBase.redAt, let sr = bShot.redAt {
+            XCTAssertLessThan(sr, br)
+        }
     }
 
-    func testPoisonCap4h() {
-        let events: [HydrationEvent] = [
-            HydrationEvent(type: .drink, kind: .shot, at: ts(10), volumeMl: nil, settings: nil),
-            HydrationEvent(type: .drink, kind: .shot, at: ts(10, 1), volumeMl: nil, settings: nil),
-            HydrationEvent(type: .drink, kind: .shot, at: ts(10, 2), volumeMl: nil, settings: nil),
+    // #5
+    func testPoisonCumulateCap3xAnd4h() {
+        let evs: [HydrationEvent] = [
+            anchor(ts(10)),
+            HydrationEvent(type: .alcohol, at: ts(10, 5),  volumeMl: 500, abv: 8, caffeineMg: nil, durationMin: nil, intensity: nil, patch: nil),
+            HydrationEvent(type: .alcohol, at: ts(10, 10), volumeMl: 500, abv: 8, caffeineMg: nil, durationMin: nil, intensity: nil, patch: nil),
+            HydrationEvent(type: .alcohol, at: ts(10, 15), volumeMl: 500, abv: 8, caffeineMg: nil, durationMin: nil, intensity: nil, patch: nil),
+            HydrationEvent(type: .alcohol, at: ts(10, 20), volumeMl: 500, abv: 8, caffeineMg: nil, durationMin: nil, intensity: nil, patch: nil),
         ]
-        let stillPoisoned = computeState(events: events, at: ts(13, 59))
-        XCTAssertTrue(stillPoisoned.poisoned)
-        let clear = computeState(events: events, at: ts(14, 1))
-        XCTAssertFalse(clear.poisoned)
+        let s = computeState(events: evs, at: ts(12, 0), profile: P70)
+        XCTAssertTrue(s.poisoned)
+        XCTAssertLessThanOrEqual(s.poisonMult, 3.0 + 1e-9)
+
+        let lastAt = ts(10, 30)
+        let evs2: [HydrationEvent] = [
+            anchor(ts(10)),
+            HydrationEvent(type: .alcohol, at: ts(10, 5), volumeMl: 500, abv: 5, caffeineMg: nil, durationMin: nil, intensity: nil, patch: nil),
+            HydrationEvent(type: .alcohol, at: lastAt,    volumeMl: 500, abv: 5, caffeineMg: nil, durationMin: nil, intensity: nil, patch: nil)
+        ]
+        let beforeEnd = computeState(events: evs2, at: lastAt + 4 * 3_600_000 - 60_000, profile: P70)
+        let afterEnd = computeState(events: evs2, at: lastAt + 4 * 3_600_000 + 60_000, profile: P70)
+        XCTAssertTrue(beforeEnd.poisoned)
+        XCTAssertFalse(afterEnd.poisoned)
     }
 
-    func testWaterGain() {
-        let g = waterGainPerGlass(.default)
-        XCTAssertGreaterThan(g, 13)
-        XCTAssertLessThan(g, 15)
+    // #6
+    func testSportBySex() {
+        let male: [HydrationEvent] = [
+            anchor(ts(10)),
+            HydrationEvent(type: .sport, at: ts(10, 1), volumeMl: nil, abv: nil,
+                           caffeineMg: nil, durationMin: 60, intensity: .moderate, patch: nil)
+        ]
+        let before = computeState(events: male, at: ts(10, 1), profile: P70)
+        let after = computeState(events: male, at: ts(11, 1), profile: P70)
+        let sportLoss = before.levelMl - after.levelMl - baseDrainMlPerHour(P70)
+        XCTAssertGreaterThan(sportLoss, 780)
+        XCTAssertLessThan(sportLoss, 820)
+
+        var F70 = P70; F70.sex = .female
+        let female = male
+        let fBefore = computeState(events: female, at: ts(10, 1), profile: F70)
+        let fAfter = computeState(events: female, at: ts(11, 1), profile: F70)
+        let fLoss = fBefore.levelMl - fAfter.levelMl - baseDrainMlPerHour(F70)
+        XCTAssertGreaterThan(fLoss, 485)
+        XCTAssertLessThan(fLoss, 515)
+
+        XCTAssertEqual(sweatRateMlPerHour(sex: .male, intensity: .moderate, tempC: nil), 800)
+        XCTAssertEqual(sweatRateMlPerHour(sex: .female, intensity: .moderate, tempC: nil), 500)
+        XCTAssertEqual(sweatRateMlPerHour(sex: .male, intensity: .intense, tempC: 30), 1600)
+    }
+
+    // #7
+    func testAmbientTemp30Multiplier() {
+        var cool = P70; cool.ambientTempC = nil
+        var hot = P70;  hot.ambientTempC = 32
+        let evs = [anchor(ts(10))]
+        let coolDrop = computeState(events: evs, at: ts(10), profile: cool).levelMl
+                     - computeState(events: evs, at: ts(11), profile: cool).levelMl
+        let hotDrop = computeState(events: evs, at: ts(10), profile: hot).levelMl
+                    - computeState(events: evs, at: ts(11), profile: hot).levelMl
+        let ratio = hotDrop / coolDrop
+        XCTAssertGreaterThan(ratio, 1.38)
+        XCTAssertLessThan(ratio, 1.42)
+    }
+
+    // #8
+    func testIncrementalEqualsOneShot() {
+        let evs: [HydrationEvent] = [
+            anchor(ts(8)),
+            HydrationEvent(type: .water, at: ts(9, 15), volumeMl: 300, abv: nil, caffeineMg: nil, durationMin: nil, intensity: nil, patch: nil),
+            HydrationEvent(type: .alcohol, at: ts(10, 30), volumeMl: 500, abv: 5, caffeineMg: nil, durationMin: nil, intensity: nil, patch: nil),
+            HydrationEvent(type: .water, at: ts(11), volumeMl: 250, abv: nil, caffeineMg: nil, durationMin: nil, intensity: nil, patch: nil),
+            HydrationEvent(type: .sport, at: ts(12), volumeMl: nil, abv: nil, caffeineMg: nil, durationMin: 45, intensity: .moderate, patch: nil)
+        ]
+        let target = ts(14, 0)
+        let oneShot = computeState(events: evs, at: target, profile: P70)
+        // Poll every 15 min then compare final — pure function contract.
+        var t = ts(8)
+        while t <= target {
+            _ = computeState(events: evs, at: t, profile: P70)
+            t += 15 * 60_000
+        }
+        let stepped = computeState(events: evs, at: target, profile: P70)
+        XCTAssertEqual(stepped.levelMl, oneShot.levelMl, accuracy: 1e-6)
     }
 }

@@ -1,23 +1,227 @@
 import {
+  alcoholNetMl,
+  baseDrainMlPerHour,
   computeState,
-  DEFAULT_SETTINGS,
+  dailyNeedMl,
+  DEFAULT_PROFILE,
+  ethanolGrams,
   HydrationEvent,
-  POISON_MIN,
-  waterGainPerGlass,
+  peakPoisonExtra,
+  sweatRateMlPerHour,
+  UserProfile,
   zoneOf,
 } from './hydrationEngine';
 
-// Fixed reference day — a Monday 10:00 local time — chosen to sit inside
-// the default awake window (7h–23h) so tests aren't affected by CI timezone.
+// Fixed reference day — Monday 15 June 2026 — so tests are timezone-agnostic
+// as long as we build wall-clock hours via new Date(...).
 function ts(hour: number, minute = 0): number {
-  const d = new Date(2026, 5, 15, hour, minute, 0, 0);
-  return d.getTime();
+  return new Date(2026, 5, 15, hour, minute, 0, 0).getTime();
 }
 
-describe('zoneOf', () => {
-  it('classifies levels', () => {
-    expect(zoneOf(100, false)).toBe('green');
-    expect(zoneOf(56, false)).toBe('green');
+const P70: UserProfile = { ...DEFAULT_PROFILE, weightKg: 70, awakeHours: 16 };
+
+// A tiny water log at t0 anchors the timeline. The starting level is already
+// capped at the daily need, so this adds nothing measurable — it's just a
+// t=0 marker so integration has a starting point.
+function anchor(atMs: number): HydrationEvent {
+  return { type: 'water', at: atMs, volumeMl: 1 };
+}
+
+describe('daily need', () => {
+  it('70 kg → 2240 mL', () => {
+    expect(dailyNeedMl(P70)).toBeCloseTo(2240, 6);
+  });
+  it('base drain 70 kg / 16h ≈ 140 mL/h', () => {
+    expect(baseDrainMlPerHour(P70)).toBeCloseTo(140, 6);
+  });
+});
+
+describe('#1 — passive drain over 2 h (70 kg, 16 h éveil)', () => {
+  it('drops ~280 mL', () => {
+    const events = [anchor(ts(10))];
+    const before = computeState(events, ts(10), P70);
+    const after = computeState(events, ts(12), P70);
+    const drop = before.levelMl - after.levelMl;
+    expect(drop).toBeGreaterThan(275);
+    expect(drop).toBeLessThan(285);
+  });
+});
+
+describe('#2 — sleep window ×0.4', () => {
+  it('mid-sleep 2 h drains ~0.4× daytime 2 h', () => {
+    const events = [anchor(ts(22))];
+    // Daytime baseline: 10:00 → 12:00 elsewhere in the day.
+    const dayEvents = [anchor(ts(10))];
+    const dayDrop =
+      computeState(dayEvents, ts(10), P70).levelMl -
+      computeState(dayEvents, ts(12), P70).levelMl;
+    // Sleep interval: 01:00 → 03:00 next day, wholly inside 23–07 window.
+    const nightDrop =
+      computeState(events, ts(24 + 1), P70).levelMl -
+      computeState(events, ts(24 + 3), P70).levelMl;
+    const ratio = nightDrop / dayDrop;
+    expect(ratio).toBeGreaterThan(0.38);
+    expect(ratio).toBeLessThan(0.42);
+  });
+});
+
+describe('#3 — beer 500 mL / 5%', () => {
+  it('net water balance is slightly positive (~+278 mL)', () => {
+    const net = alcoholNetMl(500, 5);
+    // 500 * 0.95 = 475 mL water; ethanol 19.725 g × 10 = 197.25 mL loss; net ≈ +277.75
+    expect(net).toBeGreaterThan(270);
+    expect(net).toBeLessThan(285);
+  });
+  it('poison peak multiplier ≈ ×1.6 (between ×1.3 and ×2)', () => {
+    const g = ethanolGrams(500, 5); // ≈ 19.7 g
+    const extra = peakPoisonExtra(g);
+    expect(1 + extra).toBeGreaterThan(1.5);
+    expect(1 + extra).toBeLessThan(1.75);
+  });
+  it('logs beer → poisoned=true, level not tanked', () => {
+    const events: HydrationEvent[] = [
+      anchor(ts(10)),
+      { type: 'alcohol', at: ts(10, 1), volumeMl: 500, abv: 5 },
+    ];
+    const just = computeState(events, ts(10, 2), P70);
+    expect(just.poisoned).toBe(true);
+    // level should still be near capacity (2240) — beer is essentially neutral
+    expect(just.levelMl).toBeGreaterThan(2200);
+  });
+});
+
+describe('#4 — shot 40 mL / 40%', () => {
+  it('net water balance is negative (~-102 mL)', () => {
+    const net = alcoholNetMl(40, 40);
+    expect(net).toBeLessThan(-95);
+    expect(net).toBeGreaterThan(-115);
+  });
+  it('logs shot → poisoned=true, redAt closer than baseline', () => {
+    const baseline: HydrationEvent[] = [anchor(ts(10))];
+    const withShot: HydrationEvent[] = [
+      anchor(ts(10)),
+      { type: 'alcohol', at: ts(10, 1), volumeMl: 40, abv: 40 },
+    ];
+    const bBase = computeState(baseline, ts(10, 2), P70);
+    const bShot = computeState(withShot, ts(10, 2), P70);
+    expect(bShot.poisoned).toBe(true);
+    // countdown shrinks (redAt earlier) because poison ×~1.4 speeds drain
+    if (bBase.redAt && bShot.redAt) {
+      expect(bShot.redAt).toBeLessThan(bBase.redAt);
+    }
+  });
+});
+
+describe('#5 — two drinks cumulate, capped ×3 / 4 h', () => {
+  it('multiplier cumulates but never exceeds ×3', () => {
+    // Four beers close together — deliberately overshoot to test the cap.
+    const events: HydrationEvent[] = [
+      anchor(ts(10)),
+      { type: 'alcohol', at: ts(10, 5), volumeMl: 500, abv: 8 },  // ~31 g
+      { type: 'alcohol', at: ts(10, 10), volumeMl: 500, abv: 8 },
+      { type: 'alcohol', at: ts(10, 15), volumeMl: 500, abv: 8 },
+      { type: 'alcohol', at: ts(10, 20), volumeMl: 500, abv: 8 },
+    ];
+    // Sample near a shared peak zone.
+    const s = computeState(events, ts(12, 0), P70);
+    expect(s.poisoned).toBe(true);
+    expect(s.poisonMult).toBeLessThanOrEqual(3.0 + 1e-9);
+  });
+
+  it('poison window ends at last drink + 4 h', () => {
+    const lastAt = ts(10, 30);
+    const events: HydrationEvent[] = [
+      anchor(ts(10)),
+      { type: 'alcohol', at: ts(10, 5), volumeMl: 500, abv: 5 },
+      { type: 'alcohol', at: lastAt, volumeMl: 500, abv: 5 },
+    ];
+    const beforeEnd = computeState(events, lastAt + 4 * 3600_000 - 60_000, P70);
+    const afterEnd = computeState(events, lastAt + 4 * 3600_000 + 60_000, P70);
+    expect(beforeEnd.poisoned).toBe(true);
+    expect(afterEnd.poisoned).toBe(false);
+  });
+});
+
+describe('#6 — sport by sex', () => {
+  it('moderate 60 min → male loses ~800 mL', () => {
+    const events: HydrationEvent[] = [
+      anchor(ts(10)),
+      { type: 'sport', at: ts(10, 1), durationMin: 60, intensity: 'moderate' },
+    ];
+    const before = computeState(events, ts(10, 1), P70);
+    const after = computeState(events, ts(11, 1), P70);
+    const sportLoss =
+      before.levelMl - after.levelMl - baseDrainMlPerHour(P70); // subtract 1h passive drain
+    expect(sportLoss).toBeGreaterThan(780);
+    expect(sportLoss).toBeLessThan(820);
+  });
+
+  it('moderate 60 min → female loses ~500 mL', () => {
+    const F70: UserProfile = { ...P70, sex: 'female' };
+    const events: HydrationEvent[] = [
+      anchor(ts(10)),
+      { type: 'sport', at: ts(10, 1), durationMin: 60, intensity: 'moderate' },
+    ];
+    const before = computeState(events, ts(10, 1), F70);
+    const after = computeState(events, ts(11, 1), F70);
+    const sportLoss = before.levelMl - after.levelMl - baseDrainMlPerHour(F70);
+    expect(sportLoss).toBeGreaterThan(485);
+    expect(sportLoss).toBeLessThan(515);
+  });
+
+  it('sweatRate direct lookup matches spec', () => {
+    expect(sweatRateMlPerHour('male', 'moderate', null)).toBe(800);
+    expect(sweatRateMlPerHour('female', 'moderate', null)).toBe(500);
+    expect(sweatRateMlPerHour('male', 'light', null)).toBe(400);
+    expect(sweatRateMlPerHour('male', 'intense', null)).toBe(1200);
+    expect(sweatRateMlPerHour('male', 'intense', 30)).toBe(1600);
+  });
+});
+
+describe('#7 — ambient temp > 30 °C', () => {
+  it('base drain ×1.4', () => {
+    const cool: UserProfile = { ...P70, ambientTempC: null };
+    const hot: UserProfile = { ...P70, ambientTempC: 32 };
+    const events = [anchor(ts(10))];
+    const coolDrop =
+      computeState(events, ts(10), cool).levelMl -
+      computeState(events, ts(11), cool).levelMl;
+    const hotDrop =
+      computeState(events, ts(10), hot).levelMl -
+      computeState(events, ts(11), hot).levelMl;
+    const ratio = hotDrop / coolDrop;
+    expect(ratio).toBeGreaterThan(1.38);
+    expect(ratio).toBeLessThan(1.42);
+  });
+});
+
+describe('#8 — force-quit / incremental recompute is stable', () => {
+  it('level at t3 identical whether computed in one shot or step by step', () => {
+    const events: HydrationEvent[] = [
+      anchor(ts(8)),
+      { type: 'water', at: ts(9, 15), volumeMl: 300 },
+      { type: 'alcohol', at: ts(10, 30), volumeMl: 500, abv: 5 },
+      { type: 'water', at: ts(11), volumeMl: 250 },
+      { type: 'sport', at: ts(12), durationMin: 45, intensity: 'moderate' },
+    ];
+    const target = ts(14, 0);
+    const oneShot = computeState(events, target, P70);
+    // Sample every 15 minutes leading up to `target` — the engine must
+    // yield the same final state at `target` regardless of whether we
+    // polled it in between (function is pure, but this exercises the
+    // "force-quit and reopen 2h later" contract from the spec).
+    let stepped;
+    for (let t = ts(8); t <= target; t += 15 * 60_000) {
+      stepped = computeState(events, t, P70);
+    }
+    stepped = computeState(events, target, P70);
+    expect(stepped!.levelMl).toBeCloseTo(oneShot.levelMl, 6);
+  });
+});
+
+describe('zone thresholds', () => {
+  it('zoneOf classifies correctly', () => {
+    expect(zoneOf(80, false)).toBe('green');
     expect(zoneOf(55, false)).toBe('amber');
     expect(zoneOf(25, false)).toBe('amber');
     expect(zoneOf(24, false)).toBe('red');
@@ -25,100 +229,10 @@ describe('zoneOf', () => {
   });
 });
 
-describe('drain', () => {
-  it('no events → level 100', () => {
-    const s = computeState([], ts(10));
-    expect(s.level).toBe(100);
-    expect(s.zone).toBe('green');
-  });
-
-  it('drains ~10%/h during awake hours', () => {
-    const events: HydrationEvent[] = [{ type: 'drink', kind: 'water', at: ts(10) }];
-    const start = computeState(events, ts(10));
-    const oneHour = computeState(events, ts(11));
-    expect(oneHour.level).toBeLessThan(start.level);
-    // ~10 percent per hour ± sampling error
-    expect(start.level - oneHour.level).toBeGreaterThan(9.5);
-    expect(start.level - oneHour.level).toBeLessThan(10.5);
-  });
-
-  it('does not drain during sleep', () => {
-    // Anchor an event pre-sleep, then compare a point in mid-sleep to a
-    // point 4 hours deeper into sleep — level should be identical.
-    const events: HydrationEvent[] = [{ type: 'drink', kind: 'water', at: ts(22) }];
-    const mid = computeState(events, ts(24 + 1)); // 01:00 next day
-    const later = computeState(events, ts(24 + 5)); // 05:00 next day (still sleep)
-    expect(mid.level).toBeCloseTo(later.level, 5);
-  });
-});
-
-describe('water intake', () => {
-  it('recovers ~14% per 250ml glass with default settings', () => {
-    const gain = waterGainPerGlass(DEFAULT_SETTINGS);
-    expect(gain).toBeGreaterThan(13);
-    expect(gain).toBeLessThan(15);
-  });
-});
-
-describe('alcohol + poison', () => {
-  it('beer applies -8% and marks poisoned', () => {
-    // Baseline: log a water at t0 so level starts fresh at 100.
-    const events: HydrationEvent[] = [
-      { type: 'drink', kind: 'water', at: ts(10) },
-      { type: 'drink', kind: 'beer', at: ts(10, 1) },
-    ];
-    const s = computeState(events, ts(10, 1));
-    expect(s.poisoned).toBe(true);
-    // 100 -14 (water bumps to >=100) then -8 for beer + tiny drain.
-    expect(s.level).toBeLessThan(100 - 8 + 0.5);
-    expect(s.level).toBeGreaterThan(100 - 8 - 2);
-  });
-
-  it('poison accelerates drain 3x', () => {
-    const events: HydrationEvent[] = [{ type: 'drink', kind: 'beer', at: ts(10) }];
-    const oneHour = computeState(events, ts(11));
-    // Poison for 90min → all of the +60min elapsed happened poisoned.
-    // Drain over 1h at 3x rate ≈ 30 pts, plus -8 from the beer itself.
-    expect(oneHour.level).toBeLessThan(100 - 8 - 25);
-    expect(oneHour.level).toBeGreaterThan(100 - 8 - 35);
-  });
-
-  it('poison durations cumulate (additive, not overlapping) and cap at 4h', () => {
-    // Three shots back to back: 3 * 120min = 360min, capped at 240.
-    const events: HydrationEvent[] = [
-      { type: 'drink', kind: 'shot', at: ts(10) },
-      { type: 'drink', kind: 'shot', at: ts(10, 1) },
-      { type: 'drink', kind: 'shot', at: ts(10, 2) },
-    ];
-    // Sample just before cap end (10 + 4h = 14:00) — still poisoned.
-    const stillPoisoned = computeState(events, ts(13, 59));
-    expect(stillPoisoned.poisoned).toBe(true);
-    // Sample just after cap — clear.
-    const clear = computeState(events, ts(14, 1));
-    expect(clear.poisoned).toBe(false);
-  });
-});
-
-describe('recompute from event log is stable', () => {
-  it('same events → same state regardless of computation time gap', () => {
-    const events: HydrationEvent[] = [
-      { type: 'drink', kind: 'water', at: ts(8) },
-      { type: 'drink', kind: 'beer', at: ts(9) },
-      { type: 'drink', kind: 'water', at: ts(10) },
-      { type: 'drink', kind: 'water', at: ts(11) },
-    ];
-    // "The user force-quit and came back 2h later" — level at ts(13) computed
-    // fresh must equal level at ts(13) computed after intermediate poll at ts(12).
-    const direct = computeState(events, ts(13));
-    const viaMiddle = computeState(events, ts(13));
-    expect(direct.level).toBeCloseTo(viaMiddle.level, 4);
-  });
-});
-
-describe('poison min table', () => {
-  it('matches spec (bière 90 / vin 90 / shot 120)', () => {
-    expect(POISON_MIN.beer).toBe(90);
-    expect(POISON_MIN.wine).toBe(90);
-    expect(POISON_MIN.shot).toBe(120);
+describe('weight scales daily need', () => {
+  it('90 kg profile has larger need and larger drain than 70 kg', () => {
+    const P90 = { ...P70, weightKg: 90 };
+    expect(dailyNeedMl(P90)).toBe(90 * 32);
+    expect(baseDrainMlPerHour(P90)).toBeGreaterThan(baseDrainMlPerHour(P70));
   });
 });

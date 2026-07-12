@@ -37,21 +37,27 @@ hydra/
     └── HydraAppGroup.m              # bridge Obj-C
 ```
 
-## Mécanique
+## Mécanique physiologique (v2 — le différenciateur)
 
-- Niveau **0–100**. Drain de base : 100 → 0 en `awakeHoursToEmpty` (défaut 10h) éveillé.
-- Sommeil (défaut 23h–7h) : **drain suspendu**.
-- Eau : **+14 % / 250 ml** (paramétrable).
-- Alcool :
-  - **Bière** −8 %, poison 90 min.
-  - **Vin** −6 %, poison 90 min.
-  - **Shot** −15 %, poison 120 min.
-- Poison : drain ×3. Les fenêtres **cumulent additivement**, plafonnées à **4 h**.
-- Zones : vert > 55 · ambre 25–55 · rouge < 25 · poison violet.
+La barre représente des **mL réels** relatifs au besoin quotidien.
+
+- Besoin quotidien = `poids_kg × 32 mL` (défaut 70 kg → 2240 mL).
+- Drain de base = `besoin / heures_éveil` (défaut 16 h → ~140 mL/h).
+- Sommeil : drain × **0,4** (métabolisme réduit).
+- Température : <18 °C ×0,9 · 18–24 ×1,0 · 25–30 ×1,2 · >30 ×1,4.
+- Sport (sueur, mL/h) : léger 400 · modéré H 800 / F 500 · intense 1200 · intense+chaleur 1600.
+
+**Alcool en 2 couches** :
+- Couche A — perte nette réelle basée sur la diurèse (constante d'Eggleton) :
+  `net = volume × (1-ABV) − ethanol_g × 10`. Bière 5%/500ml ≈ **neutre voire hydratante**,
+  shot 40%/40ml ≈ **-100 mL**.
+- Couche B — fenêtre poison ×1,3 à ×2 selon les grammes d'éthanol, pic à 2h,
+  décroissance jusqu'à 0 à 4h. Cumul plafonné à ×3 / 4h.
 
 Le niveau n'est **jamais** stocké. Il est **recalculé à chaque lecture** depuis
-l'historique d'événements horodatés. C'est ce qui garantit que le widget et
-l'app sont toujours cohérents (même après force-quit).
+l'historique d'événements horodatés (event sourcing) + profil. C'est ce qui
+garantit que le widget et l'app sont toujours cohérents, y compris après
+force-quit ou changement de poids.
 
 ## Tests
 
@@ -60,7 +66,10 @@ l'app sont toujours cohérents (même après force-quit).
 ```bash
 cd hydra
 npm test
-# 10 tests: drain, sommeil, gain eau, poison ×3, cumul cap 4h, recompute stable
+# 18 tests dont les 8 cas d'acceptation v2 :
+# #1 drain 2h ≈ 280 mL     #2 sommeil ×0.4         #3 bière ~neutre + poison
+# #4 shot négatif + poison #5 cumul ×3 / 4h        #6 sport par sexe
+# #7 chaleur ×1.4          #8 incrémental = one-shot
 ```
 
 **Swift** : ouvrir le workspace après prebuild puis lancer les tests Xcode

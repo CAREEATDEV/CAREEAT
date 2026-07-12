@@ -11,7 +11,7 @@ interface Props {
 }
 
 export function HydrationBar({ state, segments = 20, height = 44, style }: Props) {
-  const filled = Math.round((state.level / 100) * segments);
+  const filled = Math.round((state.levelPct / 100) * segments);
   const zoneColor =
     state.zone === 'poison'
       ? C.poison
@@ -40,11 +40,15 @@ export function HydrationBar({ state, segments = 20, height = 44, style }: Props
         })}
       </View>
       <View style={styles.metaRow}>
-        <Text style={styles.pct}>{state.level.toFixed(0)}%</Text>
+        <Text style={styles.pct}>{state.levelPct.toFixed(0)}%</Text>
         <Text style={[styles.status, { color: zoneColor }]}>
           {statusLabel(state)}
         </Text>
       </View>
+      <Text style={styles.ml}>
+        {Math.round(state.levelMl)} / {Math.round(state.dailyNeedMl)} mL
+        {state.poisoned ? `  ·  POISON ×${state.poisonMult.toFixed(2)}` : ''}
+      </Text>
     </View>
   );
 }
@@ -65,12 +69,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     backgroundColor: C.bgSoft,
   },
-  seg: {
-    flex: 1,
-    borderRadius: 3,
-    shadowOpacity: 0.7,
-    shadowRadius: 4,
-  },
+  seg: { flex: 1, borderRadius: 3, shadowOpacity: 0.7, shadowRadius: 4 },
   metaRow: {
     marginTop: 12,
     flexDirection: 'row',
@@ -83,9 +82,12 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.monoBold,
     letterSpacing: 2,
   },
-  status: {
-    fontSize: 18,
-    fontFamily: FONTS.display,
-    letterSpacing: 3,
+  status: { fontSize: 18, fontFamily: FONTS.display, letterSpacing: 3 },
+  ml: {
+    marginTop: 4,
+    color: C.textDim,
+    fontFamily: FONTS.mono,
+    fontSize: 12,
+    letterSpacing: 1,
   },
 });
