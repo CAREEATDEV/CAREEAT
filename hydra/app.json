@@ -43,6 +43,43 @@
         {
           "appleTeamId": "QN65J7X695"
         }
+      ],
+      [
+        "react-native-android-widget",
+        {
+          "fonts": [
+            "./assets/fonts/ChakraPetch-Bold.ttf",
+            "./assets/fonts/ChakraPetch-SemiBold.ttf",
+            "./assets/fonts/IBMPlexMono-Regular.ttf",
+            "./assets/fonts/IBMPlexMono-Bold.ttf"
+          ],
+          "widgets": [
+            {
+              "name": "HydraSmall",
+              "label": "HYDRA · petit",
+              "description": "Ton hydratation en un coup d'oeil",
+              "minWidth": "140dp",
+              "minHeight": "140dp",
+              "targetCellWidth": 2,
+              "targetCellHeight": 2,
+              "previewImage": "./assets/logo.png",
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "HydraMedium",
+              "label": "HYDRA · moyen",
+              "description": "Hydratation + eau + alcool",
+              "minWidth": "250dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "previewImage": "./assets/logo.png",
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
       ]
     ],
     "extra": {

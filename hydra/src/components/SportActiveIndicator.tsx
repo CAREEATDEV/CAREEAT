@@ -5,15 +5,13 @@ import {
   ActiveSportSession,
   formatSportRemaining,
   intensityLabel,
-  SportDrainSummary,
 } from '../util/sport';
 
 interface Props {
   sessions: ActiveSportSession[];
-  drain: SportDrainSummary;
 }
 
-export function SportActiveIndicator({ sessions, drain }: Props) {
+export function SportActiveIndicator({ sessions }: Props) {
   const pulse = useRef(new Animated.Value(0.4)).current;
 
   useEffect(() => {
@@ -73,13 +71,8 @@ export function SportActiveIndicator({ sessions, drain }: Props) {
         <Text style={styles.intensity}>{intensityLabel(primary.intensity)}</Text>
       </View>
       <Text style={styles.line}>
-        −{Math.round(drain.sweatMlPerH)} mL/h sueur ·{' '}
+        −{Math.round(primary.sweatMlPerHour)} mL/h sueur ·{' '}
         {formatSportRemaining(primary.remainingSec)} restantes
-      </Text>
-      <Text style={styles.lineDim}>
-        drain {Math.round(drain.totalMlPerH)} mL/h total · ×
-        {drain.factorVsRest.toFixed(1)} vs repos (
-        {Math.round(drain.passiveMlPerH)} + {Math.round(drain.sweatMlPerH)})
       </Text>
     </Animated.View>
   );
@@ -123,10 +116,5 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.mono,
     fontSize: 11,
     letterSpacing: 0.5,
-  },
-  lineDim: {
-    color: C.textDim,
-    fontFamily: FONTS.mono,
-    fontSize: 10,
   },
 });

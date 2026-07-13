@@ -5,6 +5,7 @@ import {
   greenStreak,
   lastNDaysPoisoned,
   lastNDaysWater,
+  lifetimeTotals,
   poisonedMsInRange,
   poisonedMsThisWeek,
   poisonFreeStreak,
@@ -171,5 +172,30 @@ describe('consumptionRecap', () => {
     expect(r.ethanolG).toBeGreaterThan(20); // ~15.8 + ~12.6 g
     expect(r.poisonedDays).toBe(1); // both drinks on the same day
     expect(r.cleanDays).toBe(29);
+  });
+});
+
+describe('lifetimeTotals', () => {
+  it('sums every drink across all history and tracks the first event', () => {
+    const events: HydrationEvent[] = [
+      { type: 'water', at: NOON - 200 * DAY_MS, volumeMl: 250 },
+      { type: 'electrolytes', at: NOON - 100 * DAY_MS, volumeMl: 500 },
+      { type: 'alcohol', at: NOON - 50 * DAY_MS, volumeMl: 400, abv: 5 },
+      { type: 'sport', at: NOON - 10 * DAY_MS, durationMin: 30, intensity: 'moderate' },
+      { type: 'water', at: NOON, volumeMl: 750 },
+    ];
+    const t = lifetimeTotals(events);
+    expect(t.waterMl).toBe(1500); // 250 + 500 + 750
+    expect(t.waterGlasses).toBe(3);
+    expect(t.alcoholUnits).toBe(1);
+    expect(t.ethanolG).toBeGreaterThan(15);
+    expect(t.sinceMs).toBe(NOON - 200 * DAY_MS);
+  });
+
+  it('returns zeros and null start for an empty history', () => {
+    const t = lifetimeTotals([]);
+    expect(t.waterMl).toBe(0);
+    expect(t.alcoholUnits).toBe(0);
+    expect(t.sinceMs).toBeNull();
   });
 });

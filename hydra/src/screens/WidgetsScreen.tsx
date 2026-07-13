@@ -3,7 +3,6 @@ import * as Haptics from 'expo-haptics';
 import {
   Alert,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Switch,
@@ -11,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { C, FONTS, RADIUS } from '../theme/colors';
 import { useAuth } from '../store/useAuth';
 import {

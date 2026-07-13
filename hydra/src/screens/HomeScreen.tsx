@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import * as Haptics from 'expo-haptics';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { SportActiveIndicator } from '../components/SportActiveIndicator';
+import { InfoTip } from '../components/InfoTip';
 import { HydrationBar } from '../components/HydrationBar';
 import { LogButton } from '../components/LogButton';
 import { SportLogModal } from '../components/SportLogModal';
@@ -10,10 +12,10 @@ import { computeState, forecastZoneCrossings, SportIntensity } from '../engine/h
 import { C, FONTS } from '../theme/colors';
 import { formatCountdownPrecise } from '../util/time';
 import { greenStreak } from '../util/stats';
+import { vagueHint } from '../content/metricHints';
 import {
   activeSportSessions,
   formatSportRemaining,
-  sportDrainSummary,
 } from '../util/sport';
 
 const DISPLAY_FORECAST_MS = 24 * 3600_000;
@@ -51,14 +53,13 @@ export function HomeScreen() {
   );
 
   const streak = greenStreak(events, nowMs, state.dailyNeedMl);
+  const streakLabel =
+    streak > 0 ? `🌊 VAGUE ${streak}J` : '🌊 LANCE TA VAGUE';
+  const streakHint = vagueHint(state.dailyNeedMl);
 
   const sportSessions = useMemo(
     () => activeSportSessions(events, nowMs, profile),
     [events, nowMs, profile]
-  );
-  const sportDrain = useMemo(
-    () => sportDrainSummary(sportSessions, profile),
-    [sportSessions, profile]
   );
   const sportActive = sportSessions.length > 0;
 
@@ -110,11 +111,25 @@ export function HomeScreen() {
     <SafeAreaView style={styles.root}>
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         <View style={styles.header}>
-          <Text style={styles.brand}>HYDRA</Text>
-          <Text style={styles.streak}>STREAK {streak}</Text>
+          <View style={styles.brandRow}>
+            <Image
+              source={require('../../assets/logo.png')}
+              style={styles.brandLogo}
+              accessibilityLabel="Logo HYDRA"
+            />
+            <Text style={styles.brand}>HYDRA</Text>
+          </View>
+          <View style={styles.streakWrap}>
+            <Text style={styles.streak}>{streakLabel}</Text>
+            <InfoTip
+              title={streakHint.title}
+              body={streakHint.body}
+              accessibilityLabel="Détails de ta vague"
+            />
+          </View>
         </View>
         <View style={styles.body}>
-          <SportActiveIndicator sessions={sportSessions} drain={sportDrain} />
+          <SportActiveIndicator sessions={sportSessions} />
           <HydrationBar
             state={state}
             segments={20}
@@ -200,13 +215,30 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     padding: 20,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  brandLogo: {
+    width: 32,
+    height: 32,
+    resizeMode: 'contain',
   },
   brand: {
     color: C.text,
     fontFamily: FONTS.display,
     fontSize: 28,
     letterSpacing: 6,
+  },
+  streakWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    maxWidth: '52%',
   },
   streak: { color: C.textDim, fontFamily: FONTS.mono, fontSize: 14 },
   body: { paddingHorizontal: 20, gap: 12 },

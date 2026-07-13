@@ -6,6 +6,7 @@ export const C = {
   amber: '#FFB020',
   red: '#FF3B4A',
   poison: '#B44CFF',
+  poisonEmpty: 'rgba(180,76,255,0.16)',
   segmentEmpty: '#1C2026',
   text: '#EDEFF2',
   textDim: '#7C828C',

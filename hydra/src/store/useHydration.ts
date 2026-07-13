@@ -19,6 +19,7 @@ import {
   reloadWidgetTimelines,
   writeSharedSnapshot,
 } from '../native/appGroupBridge';
+import { updateAndroidWidgets } from '../native/androidWidget';
 import {
   DEFAULT_WIDGET_SETTINGS,
   WidgetSettings,
@@ -212,6 +213,7 @@ export const useHydration = create<HydraState>()(
           widget,
         });
         await reloadWidgetTimelines();
+        await updateAndroidWidgets(events, profile, widget);
         await rescheduleNotifications(events, profile);
       },
 

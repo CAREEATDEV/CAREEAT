@@ -1,14 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useHydration } from '../store/useHydration';
 import { C, FONTS, RADIUS } from '../theme/colors';
+import { InfoTip } from '../components/InfoTip';
+import { vagueHint } from '../content/metricHints';
 import { dailyNeedMl, HydrationEvent } from '../engine/hydrationEngine';
 import {
   consumptionRecap,
@@ -18,6 +20,7 @@ import {
   isSameDay,
   lastNDaysPoisoned,
   lastNDaysWater,
+  lifetimeTotals,
   poisonedMsThisWeek,
   poisonFreeStreak,
 } from '../util/stats';
@@ -30,6 +33,15 @@ function formatDuration(ms: number): string {
   const m = totalMin % 60;
   if (h === 0) return `${m} min`;
   return `${h} h ${String(m).padStart(2, '0')}`;
+}
+
+// "15 janv. 2026" — short French date for the lifetime "since" line.
+function formatSince(ms: number): string {
+  return new Date(ms).toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
 function labelFor(e: HydrationEvent): { text: string; color: string } {
@@ -57,11 +69,15 @@ function StatCard({
   unit,
   label,
   color = C.text,
+  hintTitle,
+  hintBody,
 }: {
   value: string;
   unit?: string;
   label: string;
   color?: string;
+  hintTitle?: string;
+  hintBody?: string;
 }) {
   return (
     <View style={styles.card}>
@@ -69,7 +85,16 @@ function StatCard({
         {value}
         {unit ? <Text style={styles.cardUnit}> {unit}</Text> : null}
       </Text>
-      <Text style={styles.cardLabel}>{label}</Text>
+      <View style={styles.cardLabelRow}>
+        <Text style={styles.cardLabel}>{label}</Text>
+        {hintTitle && hintBody ? (
+          <InfoTip
+            title={hintTitle}
+            body={hintBody}
+            accessibilityLabel={`Détails : ${label}`}
+          />
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -92,6 +117,7 @@ export function DataScreen() {
     () => greenStreak(events, now, goal),
     [events, now, goal]
   );
+  const streakHint = vagueHint(goal);
   const bars = useMemo(() => lastNDaysWater(events, now, 7), [events, now]);
   const maxBar = Math.max(goal, ...bars.map((b) => b.waterMl), 1);
 
@@ -109,6 +135,7 @@ export function DataScreen() {
   );
   const maxPoisonMs = Math.max(...poisonBars.map((b) => b.poisonedMs), 1);
   const recap = useMemo(() => consumptionRecap(events, now, 30), [events, now]);
+  const totals = useMemo(() => lifetimeTotals(events), [events]);
 
   const items = events.filter((e) => isSameDay(e.at, now)).reverse();
 
@@ -135,10 +162,33 @@ export function DataScreen() {
           />
           <StatCard
             value={String(streak)}
-            label="STREAK (JOURS)"
+            unit="J"
+            label="LA VAGUE 🌊"
+            hintTitle={streakHint.title}
+            hintBody={streakHint.body}
             color={streak > 0 ? C.segmentFull : C.textDim}
           />
         </View>
+
+        <Text style={styles.section}>DEPUIS LE DÉBUT</Text>
+        <View style={styles.cardRow}>
+          <StatCard
+            value={(totals.waterMl / 1000).toFixed(totals.waterMl >= 10_000 ? 0 : 1)}
+            unit="L"
+            label="EAU BUE EN TOUT"
+            color={C.segmentFull}
+          />
+          <StatCard
+            value={String(totals.alcoholUnits)}
+            label="VERRES D'ALCOOL EN TOUT"
+            color={totals.alcoholUnits > 0 ? C.poison : C.textDim}
+          />
+        </View>
+        <Text style={styles.chartHint}>
+          {totals.sinceMs
+            ? `Ton compteur total depuis le ${formatSince(totals.sinceMs)} — il ne fait que monter.`
+            : 'Ton compteur total démarrera dès ton premier verre.'}
+        </Text>
 
         <Text style={styles.section}>7 DERNIERS JOURS</Text>
         <View style={styles.chart}>
@@ -179,7 +229,7 @@ export function DataScreen() {
           Objectif {Math.round(goal)} mL/j · barre pleine = objectif atteint
         </Text>
 
-        <Text style={styles.section}>EMPOISONNEMENT</Text>
+        <Text style={[styles.section, styles.sectionPoison]}>EMPOISONNEMENT</Text>
         <View style={styles.cardRow}>
           <StatCard
             value={formatDuration(poisonWeekMs)}
@@ -192,7 +242,7 @@ export function DataScreen() {
             color={cleanStreak > 0 ? C.segmentFull : C.textDim}
           />
         </View>
-        <View style={styles.chart}>
+        <View style={[styles.chart, styles.chartPoison]}>
           {poisonBars.map((b, i) => {
             const h = Math.max(2, (b.poisonedMs / maxPoisonMs) * 90);
             const isToday = i === poisonBars.length - 1;
@@ -205,7 +255,7 @@ export function DataScreen() {
                       {
                         height: h,
                         backgroundColor:
-                          b.poisonedMs > 0 ? C.poison : C.segmentEmpty,
+                          b.poisonedMs > 0 ? C.poison : C.poisonEmpty,
                       },
                     ]}
                   />
@@ -314,6 +364,12 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.label,
     fontSize: 10,
     letterSpacing: 1.5,
+    flex: 1,
+  },
+  cardLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     marginTop: 6,
   },
   section: {
@@ -323,6 +379,9 @@ const styles = StyleSheet.create({
     marginTop: 26,
     marginBottom: 12,
     fontSize: 11,
+  },
+  sectionPoison: {
+    color: C.poison,
   },
   chart: {
     flexDirection: 'row',
@@ -334,6 +393,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingTop: 14,
     paddingBottom: 8,
+  },
+  chartPoison: {
+    borderWidth: 1,
+    borderColor: 'rgba(180,76,255,0.22)',
   },
   barCol: { flex: 1, alignItems: 'center', gap: 6 },
   barTrack: { height: 90, justifyContent: 'flex-end' },

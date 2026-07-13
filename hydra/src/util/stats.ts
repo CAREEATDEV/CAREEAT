@@ -275,3 +275,36 @@ export function consumptionRecap(
     cleanDays,
   };
 }
+
+// ————————— Lifetime totals (Snapchat-style "since install" counters) —————————
+
+export interface LifetimeTotals {
+  waterMl: number; // total water + electrolytes drunk, ever
+  waterGlasses: number; // count of water/electrolyte drinks
+  alcoholUnits: number; // count of alcohol drinks, ever
+  ethanolG: number; // total pure ethanol (grams), ever
+  sinceMs: number | null; // timestamp of the very first logged event
+}
+
+// Sum every logged drink across the whole history. This is the running "career"
+// tally — it only ever grows, mirroring Snapchat's lifetime snap count.
+export function lifetimeTotals(events: HydrationEvent[]): LifetimeTotals {
+  let waterMl = 0;
+  let waterGlasses = 0;
+  let alcoholUnits = 0;
+  let ethanolG = 0;
+  let sinceMs: number | null = null;
+
+  for (const e of events) {
+    if (e.type === 'profile' || e.type === 'sport') continue;
+    if (sinceMs == null || e.at < sinceMs) sinceMs = e.at;
+    if (e.type === 'water' || e.type === 'electrolytes') {
+      waterMl += e.volumeMl;
+      waterGlasses += 1;
+    } else if (e.type === 'alcohol') {
+      alcoholUnits += 1;
+      ethanolG += ethanolGrams(e.volumeMl, e.abv);
+    }
+  }
+  return { waterMl, waterGlasses, alcoholUnits, ethanolG, sinceMs };
+}

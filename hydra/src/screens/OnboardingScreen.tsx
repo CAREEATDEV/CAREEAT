@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import {
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Switch,
@@ -10,6 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { C, FONTS, RADIUS } from '../theme/colors';
 import { awakeHoursFromSleep, ML_PER_KG_DAY, Sex } from '../engine/hydrationEngine';
 import { useHydration } from '../store/useHydration';
