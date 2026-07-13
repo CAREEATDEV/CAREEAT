@@ -1,4 +1,6 @@
 import React, { useEffect } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
@@ -33,33 +35,37 @@ export default function App() {
   }
 
   return (
-    <NavigationContainer
-      theme={{
-        dark: true,
-        colors: {
-          primary: C.segmentFull,
-          background: C.bg,
-          card: C.bg,
-          text: C.text,
-          border: C.bgSoft,
-          notification: C.red,
-        },
-      }}
-    >
-      <StatusBar style="light" />
-      <Tab.Navigator
-        screenOptions={{
-          headerShown: false,
-          tabBarStyle: { backgroundColor: C.bg, borderTopColor: C.bgSoft },
-          tabBarActiveTintColor: C.segmentFull,
-          tabBarInactiveTintColor: C.textDim,
-          tabBarLabelStyle: { fontFamily: FONTS.label, letterSpacing: 2 },
-        }}
-      >
-        <Tab.Screen name="BAR" component={HomeScreen} />
-        <Tab.Screen name="LOG" component={HistoryScreen} />
-        <Tab.Screen name="RÉGLAGES" component={SettingsScreen} />
-      </Tab.Navigator>
-    </NavigationContainer>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <NavigationContainer
+          theme={{
+            dark: true,
+            colors: {
+              primary: C.segmentFull,
+              background: C.bg,
+              card: C.bg,
+              text: C.text,
+              border: C.bgSoft,
+              notification: C.red,
+            },
+          }}
+        >
+          <StatusBar style="light" />
+          <Tab.Navigator
+            screenOptions={{
+              headerShown: false,
+              tabBarStyle: { backgroundColor: C.bg, borderTopColor: C.bgSoft },
+              tabBarActiveTintColor: C.segmentFull,
+              tabBarInactiveTintColor: C.textDim,
+              tabBarLabelStyle: { fontFamily: FONTS.label, letterSpacing: 2 },
+            }}
+          >
+            <Tab.Screen name="BAR" component={HomeScreen} />
+            <Tab.Screen name="LOG" component={HistoryScreen} />
+            <Tab.Screen name="RÉGLAGES" component={SettingsScreen} />
+          </Tab.Navigator>
+        </NavigationContainer>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
