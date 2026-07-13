@@ -3,7 +3,7 @@
 // The WidgetKit target + App Group are INCLUDED by default (paid Apple account
 // QN65J7X695). Requirements before the first build:
 //   • accept the updated Apple Developer Program license
-//   • register the App Group  group.com.chipli.hydra  on developer.apple.com
+//   • register the App Group  group.com.hydraapp.hydra  on developer.apple.com
 //
 // Build with the widget:
 //   npx expo prebuild --clean --platform ios && npx expo run:ios
@@ -13,7 +13,7 @@
 //
 // Override the team id if needed with  HYDRA_TEAM_ID=XXXXXXXXXX.
 const DEFAULT_TEAM_ID = 'QN65J7X695';
-const APP_GROUP = 'group.com.chipli.hydra';
+const APP_GROUP = 'group.com.hydraapp.hydra';
 
 module.exports = ({ config }) => {
   const teamId = process.env.HYDRA_TEAM_ID || DEFAULT_TEAM_ID;

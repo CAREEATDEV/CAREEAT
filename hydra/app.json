@@ -13,13 +13,13 @@
       "backgroundColor": "#000000"
     },
     "ios": {
-      "bundleIdentifier": "com.chipli.hydra",
+      "bundleIdentifier": "com.hydraapp.hydra",
       "supportsTablet": false,
       "infoPlist": {
         "UIBackgroundModes": []
       },
       "entitlements": {
-        "com.apple.security.application-groups": ["group.com.chipli.hydra"]
+        "com.apple.security.application-groups": ["group.com.hydraapp.hydra"]
       }
     },
     "plugins": [
@@ -38,7 +38,7 @@
       ]
     ],
     "extra": {
-      "appGroupId": "group.com.chipli.hydra"
+      "appGroupId": "group.com.hydraapp.hydra"
     }
   }
 }

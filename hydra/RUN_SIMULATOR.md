@@ -11,7 +11,7 @@ Team ID déjà câblé : **QN65J7X695**. Le widget est **activé par défaut**.
 2. **Node 18+** (https://nodejs.org).
 3. Côté Apple, une seule fois :
    - **Accepter** le contrat Apple Developer mis à jour (developer.apple.com).
-   - **Enregistrer l'App Group** `group.com.chipli.hydra`
+   - **Enregistrer l'App Group** `group.com.hydraapp.hydra`
      (Identifiers ▸ App Groups ▸ +).
 
 > Astuce : pour un test rapide **sans** widget (aucun App Group requis), préfixe
@@ -65,4 +65,4 @@ Une fois l'app lancée (build avec widget) :
 
 Si Xcode râle sur la signature : ouvre `ios/hydra.xcworkspace`, pour **chaque**
 target (app **et** HydraWidget) onglet *Signing & Capabilities* → Team =
-`QN65J7X695`, App Group = `group.com.chipli.hydra`, puis relance.
+`QN65J7X695`, App Group = `group.com.hydraapp.hydra`, puis relance.

@@ -367,7 +367,7 @@ struct SharedSnapshot: Decodable {
     let profile: UserProfile
 }
 
-func loadSharedSnapshot(appGroup: String = "group.com.chipli.hydra") -> SharedSnapshot? {
+func loadSharedSnapshot(appGroup: String = "group.com.hydraapp.hydra") -> SharedSnapshot? {
     guard let defaults = UserDefaults(suiteName: appGroup),
           let raw = defaults.string(forKey: "hydraSnapshot"),
           let data = raw.data(using: .utf8) else { return nil }

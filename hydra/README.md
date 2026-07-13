@@ -8,11 +8,11 @@ Suivi d'hydratation avec widget lock screen "barre de vie". iOS, MVP.
 
 - Expo SDK 51 + TypeScript, workflow **dev build** (Expo Go ne compile pas le widget).
 - Widget iOS natif Swift/WidgetKit ajouté via le config plugin `@bacons/apple-targets`.
-- Partage app ↔ widget via **App Group** `group.com.chipli.hydra` (UserDefaults partagés).
+- Partage app ↔ widget via **App Group** `group.com.hydraapp.hydra` (UserDefaults partagés).
 - `zustand` + `@react-native-async-storage/async-storage` côté RN, miroir dans l'App Group pour le widget.
 - Pas de backend, pas de compte, tout est local.
 
-Bundle id : `com.chipli.hydra` — modifiable dans `app.json` et `targets/widget/expo-target.config.js`.
+Bundle id : `com.hydraapp.hydra` — modifiable dans `app.json` et `targets/widget/expo-target.config.js`.
 
 ## Structure
 
