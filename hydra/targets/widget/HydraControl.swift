@@ -1,3 +1,7 @@
+// The ControlWidget API ships with the iOS 18 SDK (Xcode 16 = Swift 6). Wrap the
+// whole file so an older toolchain (Xcode 15 / Swift 5.x) still compiles the
+// widget target without it.
+#if compiler(>=6.0)
 import WidgetKit
 import SwiftUI
 import AppIntents
@@ -19,3 +23,4 @@ struct HydraWaterControl: ControlWidget {
         .description("Logue un verre d'eau (250 mL).")
     }
 }
+#endif

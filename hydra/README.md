@@ -127,6 +127,17 @@ Pour **voir le widget** dans le simu :
 4. Reviens dans l'app, tape **BIÈRE** : dans les 15 minutes suivantes le
    widget passe en violet et le countdown se raccourcit (`WidgetCenter.reloadAllTimelines()` est appelé automatiquement après chaque log).
 
+## Widgets (design identique à la landing)
+
+`HydraWidget.swift` reproduit en SwiftUI les 3 maquettes de la landing, routées
+par `widgetFamily` (`supportedFamilies` : rectangular + small + medium) :
+- **`accessoryRectangular`** — écran verrouillé, rendu monochrome par iOS.
+- **`systemSmall`** — écran d'accueil, couleur : gros %, barre, statut, countdown, ＋EAU.
+- **`systemMedium`** — bandeau : stats à gauche, besoin+countdown+barre à droite,
+  puis ＋EAU pleine largeur et le groupe **ALCOOL** (LÉGER/MOYEN/FORT).
+- Couleurs = tokens `Color.hGreen/hAmber/hRed/hPoison/…` (miroir de `theme/colors.ts`).
+- Target widget en **iOS 17** (boutons interactifs + `containerBackground`).
+
 ## Widget interactif (boutons « + Eau »)
 
 Boutons tappables qui loguent un verre **sans ouvrir l'app**, via App Intents :

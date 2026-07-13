@@ -10,5 +10,5 @@ module.exports = {
   entitlements: {
     'com.apple.security.application-groups': ['group.com.hydraapp.hydra'],
   },
-  deploymentTarget: '16.4',
+  deploymentTarget: '17.0',
 };

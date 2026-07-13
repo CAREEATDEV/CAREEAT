@@ -51,6 +51,19 @@ enum HydraStore {
         save(snap)
         return true
     }
+
+    // Append an alcohol event (used by the systemMedium tier buttons).
+    @discardableResult
+    static func logAlcohol(volumeMl: Double, abv: Double) -> Bool {
+        guard var snap = loadRW() else { return false }
+        let now = Date().timeIntervalSince1970 * 1000
+        snap.events.append(HydrationEvent(
+            type: .alcohol, at: now, volumeMl: volumeMl, abv: abv,
+            caffeineMg: nil, durationMin: nil, intensity: nil, patch: nil))
+        snap.updatedAt = now
+        save(snap)
+        return true
+    }
 }
 
 // The shared logging action. iOS 16+ (App Intents framework); the interactive
@@ -68,6 +81,25 @@ struct LogWaterIntent: AppIntent {
 
     func perform() async throws -> some IntentResult {
         HydraStore.logWater(volumeMl: Double(volumeMl ?? 250))
+        WidgetCenter.shared.reloadAllTimelines()
+        return .result()
+    }
+}
+
+// Alcohol tiers for the systemMedium widget buttons (Léger / Moyen / Fort).
+@available(iOS 16.0, *)
+struct LogAlcoholIntent: AppIntent {
+    static var title: LocalizedStringResource = "Logger un alcool"
+    static var description = IntentDescription("Ajoute une boisson alcoolisée à HYDRA.")
+
+    @Parameter(title: "Volume (mL)") var volumeMl: Int?
+    @Parameter(title: "Degré (%)") var abv: Int?
+
+    init() {}
+    init(volumeMl: Int, abv: Int) { self.volumeMl = volumeMl; self.abv = abv }
+
+    func perform() async throws -> some IntentResult {
+        HydraStore.logAlcohol(volumeMl: Double(volumeMl ?? 400), abv: Double(abv ?? 5))
         WidgetCenter.shared.reloadAllTimelines()
         return .result()
     }
