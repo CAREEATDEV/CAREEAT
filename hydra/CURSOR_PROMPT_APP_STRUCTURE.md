@@ -19,10 +19,29 @@ l'ajouter, le régler, et consulter ses données. Structure l'app en **3 onglets
 
 ### Onglet 1 — BARRE (accueil, existe déjà, à garder/peaufiner)
 - La grande barre de vie + %, statut, countdown, mL (composant `HydrationBar`).
-- Log rapide en 1 tap : **EAU / BOUTEILLE**, groupe **ALCOOL** (Léger 2–8° /
-  Moyen 9–22° / Fort 30–45°), **SPORT** (modéré / intense), **UNDO**.
+- Log rapide en 1 tap. **⚠️ Fais d'abord ce ménage des boutons** (l'écran actuel
+  en a trop, dont des boutons jamais demandés) — c'est important pour la lisibilité
+  du produit dans les vidéos :
+  - **EAU** : un seul bouton. **Supprime le bouton BOUTEILLE (500 mL)** — il ne
+    fait rien de plus que EAU. Le contenant par défaut (250 / 500 mL) se règle
+    dans l'onglet WIDGETS (voir plus bas), pas via un 2ᵉ bouton.
+  - **ALCOOL** : garde le groupe 3 paliers (Léger 2–8° / Moyen 9–22° / Fort 30–45°).
+  - **SPORT** : **fusionne les deux boutons `SPORT MODÉRÉ` et `SPORT INTENSE` en
+    un seul bouton `SPORT`** qui ouvre un petit sélecteur (Modéré / Intense + durée
+    en min), puis appelle `logSport(minutes, intensity)`. Ne mets pas deux boutons.
+  - **ÉLECTROLYTES** : **retire-le de l'écran principal.** Physiologiquement il est
+    valable (rétention ×1.1, garde le preset `electrolytes` dans le moteur), mais il
+    brouille le message eau-vs-alcool. Déplace-le dans un menu secondaire
+    « + autres boissons » (optionnel) OU laisse-le seulement dans le moteur sans
+    bouton visible pour l'instant.
+  - **UNDO** : garde.
+  - **Cible finale de l'écran BARRE : EAU · ALCOOL (Léger/Moyen/Fort) · SPORT · UNDO.**
+- Ne touche pas au moteur `hydrationEngine.ts` autrement que d'y **laisser** les
+  presets existants (`water_bottle`, `electrolytes`) — on les cache côté UI, on ne
+  les casse pas. Retirer un bouton = retirer son rendu dans `HomeScreen.tsx`, pas
+  supprimer le preset ni sa logique.
 - Feedback : haptique, toast « +X mL », état **SATURÉ** si plafond d'absorption
-  atteint. (Tout ça existe déjà dans `src/screens/HomeScreen.tsx`.)
+  atteint. (La mécanique existe déjà dans `src/screens/HomeScreen.tsx`.)
 
 ### Onglet 2 — DONNÉES (historique + stats)
 - Liste des événements du jour avec suppression (existe : `HistoryScreen.tsx`).
