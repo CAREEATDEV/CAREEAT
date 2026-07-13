@@ -47,7 +47,25 @@ interface HydraState {
   updateWidget: (patch: Partial<WidgetSettings>) => Promise<void>;
   refreshWidget: () => Promise<void>;
   _sync: () => Promise<void>;
+
+  // ── Cloud sync (Supabase) ──────────────────────────────────────────────
+  deletedKeys: string[]; // tombstones: client_ids deleted locally, pending push
+  cloudCursor: string | null; // max events.updated_at pulled so far (ISO)
+  clearDeleted: (keys: string[]) => void;
+  setCloudCursor: (cursor: string | null) => void;
+  // Merge server changes into the local store (idempotent).
+  mergeCloud: (args: {
+    addEvents: HydrationEvent[];
+    removeKeys: string[];
+    profile?: UserProfile;
+    widget?: Partial<WidgetSettings>;
+    onboarded?: boolean;
+  }) => Promise<void>;
 }
+
+// Stable per-event sync key (mirrors backend `client_id`). No two events of the
+// same type share a millisecond, so type+at is unique and deterministic.
+export const eventKey = (e: HydrationEvent): string => `${e.type}_${e.at}`;
 
 export const useHydration = create<HydraState>()(
   persist(
@@ -58,6 +76,8 @@ export const useHydration = create<HydraState>()(
       widget: DEFAULT_WIDGET_SETTINGS,
       hydrated: false,
       onboarded: false,
+      deletedKeys: [],
+      cloudCursor: null,
 
       // First-run setup: apply the collected profile + water container in one
       // shot (single profile event, single sync) and flip the onboarded flag.
@@ -139,7 +159,11 @@ export const useHydration = create<HydraState>()(
         const evs = get().events;
         for (let i = evs.length - 1; i >= 0; i--) {
           if (evs[i].type !== 'profile') {
-            set({ events: [...evs.slice(0, i), ...evs.slice(i + 1)] });
+            const removed = evs[i];
+            set({
+              events: [...evs.slice(0, i), ...evs.slice(i + 1)],
+              deletedKeys: [...get().deletedKeys, eventKey(removed)],
+            });
             await get()._sync();
             return;
           }
@@ -147,7 +171,14 @@ export const useHydration = create<HydraState>()(
       },
 
       async deleteEvent(at) {
-        set({ events: get().events.filter((e) => e.at !== at) });
+        const removed = get().events.filter((e) => e.at === at);
+        set({
+          events: get().events.filter((e) => e.at !== at),
+          deletedKeys: [
+            ...get().deletedKeys,
+            ...removed.map((e) => eventKey(e)),
+          ],
+        });
         await get()._sync();
       },
 
@@ -183,6 +214,41 @@ export const useHydration = create<HydraState>()(
         await reloadWidgetTimelines();
         await rescheduleNotifications(events, profile);
       },
+
+      clearDeleted(keys) {
+        const gone = new Set(keys);
+        set({ deletedKeys: get().deletedKeys.filter((k) => !gone.has(k)) });
+      },
+
+      setCloudCursor(cursor) {
+        set({ cloudCursor: cursor });
+      },
+
+      // Apply server changes: add missing events, drop tombstoned ones, and
+      // overwrite the profile snapshot when the server copy is newer. Never
+      // re-adds a locally deleted event (deletedKeys wins).
+      async mergeCloud({ addEvents, removeKeys, profile, widget, onboarded }) {
+        const locallyDeleted = new Set(get().deletedKeys);
+        const remove = new Set(removeKeys);
+        const have = new Set(get().events.map(eventKey));
+
+        let next = get().events.filter((e) => !remove.has(eventKey(e)));
+        for (const e of addEvents) {
+          const k = eventKey(e);
+          if (remove.has(k) || locallyDeleted.has(k) || have.has(k)) continue;
+          next.push(e);
+          have.add(k);
+        }
+        next.sort((a, b) => a.at - b.at);
+
+        set({
+          events: next,
+          ...(profile ? { profile } : {}),
+          ...(widget ? { widget: { ...get().widget, ...widget } } : {}),
+          ...(onboarded !== undefined ? { onboarded } : {}),
+        });
+        await get()._sync();
+      },
     }),
     {
       name: 'hydra.v2',
@@ -193,6 +259,8 @@ export const useHydration = create<HydraState>()(
         presets: s.presets,
         widget: s.widget,
         onboarded: s.onboarded,
+        deletedKeys: s.deletedKeys,
+        cloudCursor: s.cloudCursor,
       }),
       onRehydrateStorage: () => (state) => {
         state?._sync().catch(() => {});

@@ -10,9 +10,12 @@ import { HomeScreen } from './src/screens/HomeScreen';
 import { DataScreen } from './src/screens/DataScreen';
 import { WidgetsScreen } from './src/screens/WidgetsScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
+import { AuthScreen } from './src/screens/AuthScreen';
 import { C, FONTS } from './src/theme/colors';
 import { ensurePermissions } from './src/notifications/scheduler';
 import { useHydration } from './src/store/useHydration';
+import { useAuth } from './src/store/useAuth';
+import { startSync } from './src/sync/cloudSync';
 
 const Tab = createBottomTabNavigator();
 
@@ -49,12 +52,19 @@ export default function App() {
   });
 
   const onboarded = useHydration((s) => s.onboarded);
+  const authStatus = useAuth((s) => s.status);
   const [storeHydrated, setStoreHydrated] = useState(
     useHydration.persist.hasHydrated()
   );
 
   useEffect(() => {
     ensurePermissions().catch(() => {});
+    // Bring up auth, then wire cloud sync (sign-in + debounced local changes).
+    useAuth
+      .getState()
+      .init()
+      .then(() => startSync())
+      .catch(() => {});
     const unsub = useHydration.persist.onFinishHydration(() =>
       setStoreHydrated(true)
     );
@@ -62,10 +72,21 @@ export default function App() {
     return unsub;
   }, []);
 
-  // Wait for fonts AND persisted state before deciding what to show, so we never
-  // flash the onboarding for a returning user.
-  if (!fontsLoaded || !storeHydrated) {
+  // Wait for fonts, persisted state AND auth before deciding what to show.
+  if (!fontsLoaded || !storeHydrated || authStatus === 'loading') {
     return <Splash />;
+  }
+
+  // Not signed in → gate the whole app behind the account screen (paid model).
+  if (authStatus === 'signedOut') {
+    return (
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <StatusBar style="light" />
+          <AuthScreen />
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    );
   }
 
   if (!onboarded) {

@@ -110,6 +110,40 @@ select * from analytics.daily_consumption;  -- per day: active users, water mL, 
 select * from analytics.daily_per_user;     -- per active user: avg water / alcohol / ethanol
 ```
 
+## App integration — Phase 2 (WIRED ✅)
+
+The app now has accounts + cloud sync. Files added:
+
+- `src/lib/supabase.ts` — Supabase client (AsyncStorage session, auto-refresh).
+- `src/store/useAuth.ts` — auth store: Apple / email sign-in, sign-up, sign-out,
+  `deleteAccount()`.
+- `src/screens/AuthScreen.tsx` — login / sign-up UI (Apple button on iOS + email).
+- `src/sync/cloudSync.ts` — offline-first push/pull (idempotent events, tombstones,
+  profile snapshot, delta cursor). Auto-runs on sign-in + debounced on local changes.
+- `App.tsx` — gates the whole app behind sign-in (paid model), then onboarding.
+- `WidgetsScreen` → **COMPTE** section: email, sign out, delete account.
+- `backend/functions/delete-account/index.ts` — Edge Function (deployed), removes
+  the caller's user; profiles/events cascade-delete.
+
+Config keys live in `app.config.js` `extra` (URL + publishable key). Deps added:
+`@supabase/supabase-js`, `react-native-url-polyfill`, `expo-apple-authentication`.
+
+### ⚙️ What YOU must configure once (dashboard — not in code)
+
+1. **Sign in with Apple** — follow the "Auth" section above (Services ID + `.p8`
+   → Supabase → Auth → Providers → Apple). Only works in a **native build**
+   (not Expo Go).
+2. **Email testing** — by default Supabase requires email confirmation. For fast
+   testing either use Apple, or Dashboard → Auth → Providers → Email → turn
+   **"Confirm email" off** (turn it back on for production, or rely on Apple).
+
+### 🔍 Verify in Expo Go (email path, no build)
+
+`npx expo start` → the app opens on the **account screen**. Create an account with
+email/password (needs "Confirm email" off, per above) → onboarding → tabs. Log a
+few drinks, then check `analytics.overview` / `public.events` in the SQL editor:
+your rows appear. The Apple button only shows in a native iOS build.
+
 ## Security posture
 
 - RLS on every table; policies are `auth.uid() = user_id` for select/insert/

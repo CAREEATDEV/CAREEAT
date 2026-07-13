@@ -12,5 +12,5 @@
     "types": ["jest", "node"]
   },
   "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules", "targets"]
+  "exclude": ["node_modules", "targets", "backend"]
 }

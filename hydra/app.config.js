@@ -15,6 +15,14 @@
 const DEFAULT_TEAM_ID = 'QN65J7X695';
 const APP_GROUP = 'group.com.hydraapp.hydra';
 
+// Supabase (HYDRA project). The publishable/anon key is safe to ship — every
+// table is RLS-locked to auth.uid(). Overridable via EXPO_PUBLIC_* env vars.
+const SUPABASE_URL =
+  process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://zxrakxkiqfiinszavuqi.supabase.co';
+const SUPABASE_ANON_KEY =
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
+  'sb_publishable_A51TxCrIYng_8fa5PtV_yw_TMNtjZAi';
+
 module.exports = ({ config }) => {
   const teamId = process.env.HYDRA_TEAM_ID || DEFAULT_TEAM_ID;
   const withWidget = !process.env.HYDRA_NO_WIDGET;
@@ -35,5 +43,18 @@ module.exports = ({ config }) => {
     delete ios.entitlements;
   }
 
-  return { ...config, plugins, ios };
+  // Sign in with Apple needs the native capability in the build (harmless on
+  // Android; the button is only shown on iOS when the module is available).
+  plugins.push('expo-apple-authentication');
+
+  return {
+    ...config,
+    plugins,
+    ios,
+    extra: {
+      ...(config.extra || {}),
+      supabaseUrl: SUPABASE_URL,
+      supabaseAnonKey: SUPABASE_ANON_KEY,
+    },
+  };
 };

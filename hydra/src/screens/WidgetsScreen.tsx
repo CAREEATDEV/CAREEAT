@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import {
+  Alert,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -11,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { C, FONTS, RADIUS } from '../theme/colors';
+import { useAuth } from '../store/useAuth';
 import {
   awakeHoursFromSleep,
   computeState,
@@ -104,9 +106,28 @@ export function WidgetsScreen() {
     refreshWidget,
   } = useHydration();
 
+  const { user, signOut, deleteAccount } = useAuth();
   const [mode, setMode] = useState<PreviewMode>('live');
   const [guide, setGuide] = useState<GuideTarget | null>(null);
   const [notif, setNotif] = useState(true);
+
+  const confirmDelete = () => {
+    Alert.alert(
+      'Supprimer le compte',
+      'Toutes tes données (profil, historique) seront définitivement effacées. Cette action est irréversible.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: async () => {
+            const r = await deleteAccount();
+            if (!r.ok) Alert.alert('Erreur', r.message);
+          },
+        },
+      ]
+    );
+  };
   const [toast, setToast] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(Date.now());
   useEffect(() => {
@@ -302,6 +323,20 @@ export function WidgetsScreen() {
           </View>
         </Row>
 
+        {/* ————— COMPTE ————— */}
+        <Text style={styles.section}>COMPTE</Text>
+        <Row label="CONNECTÉ">
+          <Text style={styles.readonly} numberOfLines={1}>
+            {user?.email ?? 'Apple ID'}
+          </Text>
+        </Row>
+        <Pressable style={styles.acctBtn} onPress={() => signOut()}>
+          <Text style={styles.acctBtnTxt}>SE DÉCONNECTER</Text>
+        </Pressable>
+        <Pressable style={styles.acctDanger} onPress={confirmDelete}>
+          <Text style={styles.acctDangerTxt}>SUPPRIMER LE COMPTE</Text>
+        </Pressable>
+
         <Text style={styles.disclaimer}>
           App grand public à but ludique et informatif. Ce n'est pas un
           dispositif médical. Les coefficients sont des moyennes de population.
@@ -462,4 +497,22 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 16,
   },
+  acctBtn: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: C.segmentEmpty,
+    borderRadius: RADIUS.md,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  acctBtnTxt: { color: C.text, fontFamily: FONTS.label, letterSpacing: 2, fontSize: 12 },
+  acctDanger: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: C.red,
+    borderRadius: RADIUS.md,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  acctDangerTxt: { color: C.red, fontFamily: FONTS.label, letterSpacing: 2, fontSize: 12 },
 });
