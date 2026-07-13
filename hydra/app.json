@@ -13,10 +13,10 @@
       "backgroundColor": "#000000"
     },
     "android": {
-      "package": "com.hydraapp.hydra"
+      "package": "com.shipply.hydraapp"
     },
     "ios": {
-      "bundleIdentifier": "com.hydraapp.hydra",
+      "bundleIdentifier": "com.shipply.hydraapp",
       "supportsTablet": false,
       "infoPlist": {
         "UIBackgroundModes": [],
@@ -24,7 +24,7 @@
       },
       "entitlements": {
         "com.apple.security.application-groups": [
-          "group.com.hydraapp.hydra"
+          "group.com.shipply.hydraapp"
         ]
       }
     },
@@ -46,18 +46,18 @@
       ]
     ],
     "extra": {
-      "appGroupId": "group.com.hydraapp.hydra",
+      "appGroupId": "group.com.shipply.hydraapp",
       "eas": {
         "build": {
           "experimental": {
             "ios": {
               "appExtensions": [
                 {
-                  "bundleIdentifier": "com.hydraapp.hydra.widget",
+                  "bundleIdentifier": "com.shipply.hydraapp.widget",
                   "targetName": "HydraWidget",
                   "entitlements": {
                     "com.apple.security.application-groups": [
-                      "group.com.hydraapp.hydra"
+                      "group.com.shipply.hydraapp"
                     ]
                   }
                 }

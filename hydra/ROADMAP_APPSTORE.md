@@ -37,8 +37,8 @@ Build (cloud)**, jamais `expo run:ios`. Compte Apple Developer payant OK
 Le widget Swift n'a **jamais été compilé** — c'est le plus gros risque. À faire
 en premier, tout le reste en dépend.
 
-- [ ] Enregistrer l'**App Group** `group.com.hydraapp.hydra` dans Apple Developer
-      (Identifiers → App Groups) et l'associer à l'App ID `com.hydraapp.hydra`.
+- [ ] Enregistrer l'**App Group** `group.com.shipply.hydraapp` dans Apple Developer
+      (Identifiers → App Groups) et l'associer à l'App ID `com.shipply.hydraapp`.
 - [ ] `eas login` puis **build de développement** :
       `eas build --profile development --platform ios` (cloud, depuis Windows).
 - [ ] Corriger les **erreurs de compilation Swift** qui sortiront (widget, App
@@ -90,7 +90,7 @@ en premier, tout le reste en dépend.
 
 ## Phase 5 — App Store Connect & soumission
 
-- [ ] Créer la **fiche app** dans App Store Connect (bundle `com.hydraapp.hydra`).
+- [ ] Créer la **fiche app** dans App Store Connect (bundle `com.shipply.hydraapp`).
 - [ ] **Build de production** : `eas build --profile production --platform ios`.
 - [ ] Envoyer le build : `eas submit --platform ios` (ou Transporter).
 - [ ] Remplir métadonnées + captures + **prix** (Décision B).

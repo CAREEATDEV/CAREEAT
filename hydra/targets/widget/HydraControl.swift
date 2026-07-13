@@ -13,7 +13,7 @@ import AppIntents
 @available(iOS 18.0, *)
 struct HydraWaterControl: ControlWidget {
     var body: some ControlWidgetConfiguration {
-        StaticControlConfiguration(kind: "com.hydraapp.hydra.control.water") {
+        StaticControlConfiguration(kind: "com.shipply.hydraapp.control.water") {
             ControlWidgetButton(action: LogWaterIntent(volumeMl: 250)) {
                 Label("+ Eau", systemImage: "drop.fill")
             }

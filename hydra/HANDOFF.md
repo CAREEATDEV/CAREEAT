@@ -72,9 +72,9 @@ hydra-landing/              ← la LANDING PAGE (déployée sur Vercel)
 | Élément | Valeur |
 |---|---|
 | Nom app | HYDRA |
-| Bundle iOS | `com.hydraapp.hydra` |
-| Package Android | `com.hydraapp.hydra` (dérivé du bundle) |
-| App Group iOS | `group.com.hydraapp.hydra` |
+| Bundle iOS | `com.shipply.hydraapp` |
+| Package Android | `com.shipply.hydraapp` (dérivé du bundle) |
+| App Group iOS | `group.com.shipply.hydraapp` |
 | Apple Team ID | `QN65J7X695` (déjà câblé dans `app.config.js`) |
 | URL scheme | `hydra://` |
 | Supabase — projet | « SHIPPLY CARS », ref `rusdjbgpghbistjeeboo` |
@@ -115,9 +115,9 @@ fonctions SECURITY DEFINER `hydra_waitlist_signup` / `_update` / `_position` /
 1. **Accepter le contrat** Apple Developer Program mis à jour (bandeau jaune sur
    App Store Connect — le titulaire du compte doit accepter, sinon builds bloqués).
 2. **Enregistrer l'App Group** : Identifiers → App Groups → `+` →
-   `group.com.hydraapp.hydra`.
-3. **Enregistrer l'App ID** : Identifiers → App IDs → `com.hydraapp.hydra`,
-   cocher la capability **App Groups** → sélectionner `group.com.hydraapp.hydra`.
+   `group.com.shipply.hydraapp`.
+3. **Enregistrer l'App ID** : Identifiers → App IDs → `com.shipply.hydraapp`,
+   cocher la capability **App Groups** → sélectionner `group.com.shipply.hydraapp`.
    (Si le bundle est déjà pris mondialement, choisir un autre, ex.
    `com.hydraapp.lifebar`, et le remplacer partout — voir §8.)
 
@@ -203,8 +203,8 @@ dim #7C828C. Polices Chakra Petch (titres) + IBM Plex Mono (données).
   entrée dans `HydraWidgetBundle` (dans `HydraWidget.swift`).
 - `app.config.js` inclut le widget par défaut (Team ID `QN65J7X695`). Pour un
   build sans widget : préfixer par `HYDRA_NO_WIDGET=1`.
-- Changer le bundle id : remplacer `com.hydraapp.hydra` partout
-  (`grep -rl com.hydraapp.hydra hydra/`) ET l'App Group `group.com.hydraapp.hydra`.
+- Changer le bundle id : remplacer `com.shipply.hydraapp` partout
+  (`grep -rl com.shipply.hydraapp hydra/`) ET l'App Group `group.com.shipply.hydraapp`.
   Un simple `sed` global suffit (les deux ont le même radical).
 - Widget interactif (boutons "+Eau") = iOS 17+ ; fallback ouvre l'app avant.
 

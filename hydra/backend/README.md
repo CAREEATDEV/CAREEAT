@@ -45,8 +45,8 @@ partial profile for `type='profile'` events.
 it once in the dashboard — it needs your Apple credentials, which only you have:
 
 1. Apple Developer → **Certificates, IDs & Profiles**:
-   - App ID with **Sign in with Apple** capability (bundle `com.hydraapp.hydra`).
-   - A **Services ID** (e.g. `com.hydraapp.hydra.signin`) — this is the OAuth client id.
+   - App ID with **Sign in with Apple** capability (bundle `com.shipply.hydraapp`).
+   - A **Services ID** (e.g. `com.shipply.hydraapp.signin`) — this is the OAuth client id.
    - A **Sign in with Apple Key** → download the `.p8`, note the **Key ID** and
      your **Team ID `QN65J7X695`**.
 2. Supabase dashboard → **Authentication → Providers → Apple** → enable, and fill

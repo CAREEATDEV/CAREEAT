@@ -17,7 +17,7 @@ export interface SharedSnapshot {
 
 const APP_GROUP =
   (Constants.expoConfig?.extra as Record<string, string> | undefined)
-    ?.appGroupId ?? 'group.com.hydraapp.hydra';
+    ?.appGroupId ?? 'group.com.shipply.hydraapp';
 
 type BridgeShape = {
   writeSnapshot(appGroup: string, json: string): Promise<void>;

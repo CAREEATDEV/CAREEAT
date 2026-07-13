@@ -8,7 +8,7 @@ module.exports = {
     $widgetBackground: '#000000',
   },
   entitlements: {
-    'com.apple.security.application-groups': ['group.com.hydraapp.hydra'],
+    'com.apple.security.application-groups': ['group.com.shipply.hydraapp'],
   },
   deploymentTarget: '17.0',
 };

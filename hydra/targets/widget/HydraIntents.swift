@@ -8,7 +8,7 @@ import Foundation
 // and the widget already share, then reloads the widget timelines. No bridge,
 // no launch — the exact same data path the app uses.
 
-private let APP_GROUP = "group.com.hydraapp.hydra"
+private let APP_GROUP = "group.com.shipply.hydraapp"
 private let SNAPSHOT_KEY = "hydraSnapshot"
 
 // Read-write mirror of the shared snapshot (SharedSnapshot in the engine is
