@@ -49,8 +49,16 @@ it once in the dashboard — it needs your Apple credentials, which only you hav
    - A **Services ID** (e.g. `com.shipply.hydraapp.signin`) — this is the OAuth client id.
    - A **Sign in with Apple Key** → download the `.p8`, note the **Key ID** and
      your **Team ID `QN65J7X695`**.
-2. Supabase dashboard → **Authentication → Providers → Apple** → enable, and fill
-   the Services ID + the client secret (generated from the `.p8` / Key ID / Team ID).
+2. Generate the client secret **locally** (your `.p8` never leaves your machine):
+   ```
+   node backend/scripts/generate-apple-secret.js <path-to-.p8> QN65J7X695 <KEY_ID> com.shipply.hydraapp.signin
+   ```
+   Copy the printed JWT (valid 6 months — Apple's max; rerun to renew).
+3. Supabase dashboard → **Authentication → Providers → Apple** → enable:
+   - **Client IDs**: `com.shipply.hydraapp,com.shipply.hydraapp.signin` (both —
+     the bundle id is the audience for native sign-in via `signInWithIdToken`,
+     the Services ID for any web/redirect flow).
+   - **Secret Key**: paste the generated JWT.
    Docs: https://supabase.com/docs/guides/auth/social-login/auth-apple
 3. In the app (native iOS), use `expo-apple-authentication` to get an identity
    token, then:
