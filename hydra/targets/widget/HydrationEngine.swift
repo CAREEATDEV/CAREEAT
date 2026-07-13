@@ -147,15 +147,29 @@ func ethanolGrams(volumeMl: Double, abv: Double) -> Double {
     return volumeMl * (abv / 100) * ETHANOL_DENSITY_G_PER_ML
 }
 
-func peakPoisonExtra(_ ethanolG: Double) -> Double {
-    let g = min(30, max(10, ethanolG))
-    return 0.3 + ((g - 10) / 20) * 0.7
+// Concentration gate — mirrors TS concentrationFactor. The acute diuretic /
+// poison response depends on the drink's ABV, not just total ethanol grams: a
+// 30 g dose as beer (5%) triggers no measurable diuresis, the same 30 g as wine
+// (13.5%) or spirits does. Ramp 0.3 (dilute) → 1.0 (≥20%). See TS engine for
+// sources (Polhuis 2017, Maughan 2016).
+let CONC_ABV_LOW: Double = 8
+let CONC_ABV_HIGH: Double = 20
+func concentrationFactor(_ abv: Double) -> Double {
+    if abv <= CONC_ABV_LOW { return 0.3 }
+    if abv >= CONC_ABV_HIGH { return 1.0 }
+    return 0.3 + ((abv - CONC_ABV_LOW) / (CONC_ABV_HIGH - CONC_ABV_LOW)) * 0.7
 }
 
-private func poisonExtraFromEvent(_ eventAt: TimeInterval, _ ethanolG: Double, _ t: TimeInterval) -> Double {
+func peakPoisonExtra(_ ethanolG: Double, _ abv: Double) -> Double {
+    let g = min(30, max(10, ethanolG))
+    let gramsCurve = 0.3 + ((g - 10) / 20) * 0.7
+    return gramsCurve * concentrationFactor(abv)
+}
+
+private func poisonExtraFromEvent(_ eventAt: TimeInterval, _ ethanolG: Double, _ abv: Double, _ t: TimeInterval) -> Double {
     let dt = t - eventAt
     if dt < 0 || dt > POISON_WINDOW_MS { return 0 }
-    let peakExtra = peakPoisonExtra(ethanolG)
+    let peakExtra = peakPoisonExtra(ethanolG, abv)
     let rise = dt / POISON_PEAK_MS
     let fall = (POISON_WINDOW_MS - dt) / POISON_PEAK_MS
     return peakExtra * min(rise, fall)
@@ -167,7 +181,7 @@ private func poisonMultiplierAt(_ events: [HydrationEvent], _ t: TimeInterval) -
         guard let vol = e.volumeMl, let abv = e.abv else { continue }
         if t < e.at || t > e.at + POISON_WINDOW_MS { continue }
         let g = ethanolGrams(volumeMl: vol, abv: abv)
-        extra += poisonExtraFromEvent(e.at, g, t)
+        extra += poisonExtraFromEvent(e.at, g, abv, t)
     }
     return min(3.0, 1.0 + extra)
 }
@@ -257,7 +271,9 @@ func zoneOf(pct: Double, poisoned: Bool) -> Zone {
 
 func alcoholNetMl(volumeMl: Double, abv: Double) -> Double {
     let water = volumeMl * (1 - abv / 100)
-    let diur = ethanolGrams(volumeMl: volumeMl, abv: abv) * DIURESIS_ML_PER_G_ETHANOL
+    let diur = ethanolGrams(volumeMl: volumeMl, abv: abv)
+        * DIURESIS_ML_PER_G_ETHANOL
+        * concentrationFactor(abv)
     return water - diur
 }
 

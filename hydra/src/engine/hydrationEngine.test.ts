@@ -3,6 +3,7 @@ import {
   awakeHoursFromSleep,
   baseDrainMlPerHour,
   computeState,
+  concentrationFactor,
   dailyNeedMl,
   DEFAULT_PROFILE,
   ethanolGrams,
@@ -68,17 +69,18 @@ describe('#2 — sleep window ×0.4', () => {
 });
 
 describe('#3 — beer 500 mL / 5%', () => {
-  it('net water balance is slightly positive (~+278 mL)', () => {
+  it('net water balance is positive (~+416 mL — beer ≈ water)', () => {
     const net = alcoholNetMl(500, 5);
-    // 500 * 0.95 = 475 mL water; ethanol 19.725 g × 10 = 197.25 mL loss; net ≈ +277.75
-    expect(net).toBeGreaterThan(270);
-    expect(net).toBeLessThan(285);
+    // 475 mL water; ethanol 19.725 g × 10 × 0.3 (dilute gate) ≈ 59 mL loss; net ≈ +416.
+    // The concentration gate keeps beer hydration-neutral-to-positive (BHI 2016).
+    expect(net).toBeGreaterThan(405);
+    expect(net).toBeLessThan(425);
   });
-  it('poison peak multiplier ≈ ×1.6 (between ×1.3 and ×2)', () => {
+  it('poison peak is mild for beer (~×1.19) after the ABV gate', () => {
     const g = ethanolGrams(500, 5); // ≈ 19.7 g
-    const extra = peakPoisonExtra(g);
-    expect(1 + extra).toBeGreaterThan(1.5);
-    expect(1 + extra).toBeLessThan(1.75);
+    const extra = peakPoisonExtra(g, 5);
+    expect(1 + extra).toBeGreaterThan(1.1);
+    expect(1 + extra).toBeLessThan(1.3);
   });
   it('logs beer → poisoned=true, level not tanked', () => {
     const events: HydrationEvent[] = [
@@ -111,6 +113,32 @@ describe('#4 — shot 40 mL / 40%', () => {
     if (bBase.redAt && bShot.redAt) {
       expect(bShot.redAt).toBeLessThan(bBase.redAt);
     }
+  });
+});
+
+describe('#4b — concentration gate: a shot outweighs a beer', () => {
+  it('concentrationFactor ramps 0.3 (dilute) → 1.0 (spirits)', () => {
+    expect(concentrationFactor(5)).toBeCloseTo(0.3, 5); // beer
+    expect(concentrationFactor(8)).toBeCloseTo(0.3, 5); // low anchor
+    expect(concentrationFactor(14)).toBeCloseTo(0.65, 2); // wine, mid-ramp
+    expect(concentrationFactor(20)).toBeCloseTo(1.0, 5); // high anchor
+    expect(concentrationFactor(40)).toBeCloseTo(1.0, 5); // spirits, capped
+  });
+
+  it('a shot poisons harder than a beer even with fewer ethanol grams', () => {
+    // Beer (default LÉGER) packs slightly MORE ethanol than the shot, yet must
+    // poison LESS — the gate keys on concentration, per Polhuis 2017.
+    const beerG = ethanolGrams(400, 5); // ≈ 15.8 g
+    const shotG = ethanolGrams(40, 40); // ≈ 12.6 g
+    expect(beerG).toBeGreaterThan(shotG); // beer really does have more grams
+    const beerPeak = peakPoisonExtra(beerG, 5);
+    const shotPeak = peakPoisonExtra(shotG, 40);
+    expect(shotPeak).toBeGreaterThan(beerPeak);
+  });
+
+  it('beer stays hydration-positive, shot goes negative', () => {
+    expect(alcoholNetMl(400, 5)).toBeGreaterThan(0); // LÉGER ≈ +333
+    expect(alcoholNetMl(40, 40)).toBeLessThan(0); // FORT ≈ −102
   });
 });
 

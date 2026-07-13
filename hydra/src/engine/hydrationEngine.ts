@@ -177,24 +177,50 @@ export function ethanolGrams(volumeMl: number, abv: number): number {
   return volumeMl * (abv / 100) * ETHANOL_DENSITY_G_PER_ML;
 }
 
+// ————————— Concentration factor (ABV gate) —————————
+
+// The acute diuretic response is gated by the drink's alcohol *concentration*,
+// not by total ethanol grams alone. Diet-controlled crossover trials matched a
+// 30 g ethanol dose across beverages: beer (5%) produced NO measurable diuresis
+// vs alcohol-free beer, while the same 30 g as wine (13.5%) or spirits DID — the
+// effect switches on around ~13.5% ABV. So a shot must weigh more than a beer of
+// equal grams. We ramp a factor from 0.3 (dilute, e.g. beer) to 1.0 (concentrated,
+// ≥20%) and apply it to BOTH the net-water diuresis and the poison window.
+// Sources: Polhuis et al. 2017 (Nutrients, weak vs strong beverages);
+// Maughan et al. 2016 (Beverage Hydration Index — beer ≈ water).
+export const CONC_ABV_LOW = 8; // ≤ this ABV: diuresis largely blunted (beer/cider)
+export const CONC_ABV_HIGH = 20; // ≥ this ABV: full Eggleton diuresis (spirits)
+export function concentrationFactor(abv: number): number {
+  if (abv <= CONC_ABV_LOW) return 0.3;
+  if (abv >= CONC_ABV_HIGH) return 1.0;
+  return 0.3 + ((abv - CONC_ABV_LOW) / (CONC_ABV_HIGH - CONC_ABV_LOW)) * 0.7;
+}
+
 // ————————— Poison window model —————————
 
 const POISON_WINDOW_MS = 4 * 3600_000;
 const POISON_PEAK_MS = 2 * 3600_000;
 
-// ≤10 g ethanol → peak ×1.3 (extra 0.3). ≥30 g → peak ×2 (extra 1.0).
-// Linear interpolation in between — matches the spec text.
-export function peakPoisonExtra(ethanolG: number): number {
+// Peak extra drain at the 2h apex. Driven by ethanol grams (≤10 g → 0.3,
+// ≥30 g → 1.0) THEN scaled by the concentration gate, so a dilute drink barely
+// poisons even at high grams (matches "1 L of beer ≠ dehydration", BHI 2016).
+export function peakPoisonExtra(ethanolG: number, abv: number): number {
   const g = Math.max(10, Math.min(30, ethanolG));
-  return 0.3 + ((g - 10) / 20) * 0.7;
+  const gramsCurve = 0.3 + ((g - 10) / 20) * 0.7;
+  return gramsCurve * concentrationFactor(abv);
 }
 
 // Triangular envelope: 0 at eventAt, peakExtra at eventAt+2h, 0 at
 // eventAt+4h. Any earlier or later contributes nothing.
-function poisonExtraFromEvent(eventAt: number, ethanolG: number, t: number): number {
+function poisonExtraFromEvent(
+  eventAt: number,
+  ethanolG: number,
+  abv: number,
+  t: number
+): number {
   const dt = t - eventAt;
   if (dt < 0 || dt > POISON_WINDOW_MS) return 0;
-  const peakExtra = peakPoisonExtra(ethanolG);
+  const peakExtra = peakPoisonExtra(ethanolG, abv);
   const rise = dt / POISON_PEAK_MS;                              // 0→1 over first 2h
   const fall = (POISON_WINDOW_MS - dt) / POISON_PEAK_MS;         // 1→0 over last 2h
   return peakExtra * Math.min(rise, fall);
@@ -206,7 +232,7 @@ function poisonMultiplierAt(events: HydrationEvent[], t: number): number {
   for (const e of events) {
     if (e.type !== 'alcohol') continue;
     if (t < e.at || t > e.at + POISON_WINDOW_MS) continue;
-    extra += poisonExtraFromEvent(e.at, ethanolGrams(e.volumeMl, e.abv), t);
+    extra += poisonExtraFromEvent(e.at, ethanolGrams(e.volumeMl, e.abv), e.abv, t);
   }
   return Math.min(3.0, 1.0 + extra);
 }
@@ -314,10 +340,16 @@ export function zoneOf(pct: number, poisoned: boolean): Zone {
 
 // ————————— Instantaneous drink impact (mL) —————————
 
-// Alcohol Layer A: honest net water balance from the drink.
+// Alcohol Layer A: honest net water balance from the drink. The diuresis term
+// is gated by concentration (see concentrationFactor): a dilute drink like beer
+// barely triggers extra urine, so it stays hydration-neutral-to-positive, while
+// spirits carry the full Eggleton loss.
 export function alcoholNetMl(volumeMl: number, abv: number): number {
   const waterInDrink = volumeMl * (1 - abv / 100);
-  const diuresis = ethanolGrams(volumeMl, abv) * DIURESIS_ML_PER_G_ETHANOL;
+  const diuresis =
+    ethanolGrams(volumeMl, abv) *
+    DIURESIS_ML_PER_G_ETHANOL *
+    concentrationFactor(abv);
   return waterInDrink - diuresis;
 }
 

@@ -48,13 +48,13 @@ final class HydrationEngineTests: XCTestCase {
         XCTAssertLessThan(ratio, 0.42)
     }
 
-    // #3
+    // #3 — beer stays hydration-positive, poison mild after the ABV gate.
     func testBeer5pctNeutralAndPoison() {
-        XCTAssertGreaterThan(alcoholNetMl(volumeMl: 500, abv: 5), 270)
-        XCTAssertLessThan(alcoholNetMl(volumeMl: 500, abv: 5), 285)
+        XCTAssertGreaterThan(alcoholNetMl(volumeMl: 500, abv: 5), 405)
+        XCTAssertLessThan(alcoholNetMl(volumeMl: 500, abv: 5), 425)
         let g = ethanolGrams(volumeMl: 500, abv: 5)
-        XCTAssertGreaterThan(1 + peakPoisonExtra(g), 1.5)
-        XCTAssertLessThan(1 + peakPoisonExtra(g), 1.75)
+        XCTAssertGreaterThan(1 + peakPoisonExtra(g, 5), 1.1)
+        XCTAssertLessThan(1 + peakPoisonExtra(g, 5), 1.3)
 
         let evs: [HydrationEvent] = [
             anchor(ts(10)),
@@ -64,6 +64,21 @@ final class HydrationEngineTests: XCTestCase {
         let s = computeState(events: evs, at: ts(10, 2), profile: P70)
         XCTAssertTrue(s.poisoned)
         XCTAssertGreaterThan(s.levelMl, 2200)
+    }
+
+    // #4b — concentration gate: a shot outweighs a beer despite fewer grams.
+    func testConcentrationGateShotOutweighsBeer() {
+        XCTAssertEqual(concentrationFactor(5), 0.3, accuracy: 1e-6)
+        XCTAssertEqual(concentrationFactor(14), 0.65, accuracy: 1e-2)
+        XCTAssertEqual(concentrationFactor(40), 1.0, accuracy: 1e-6)
+
+        let beerG = ethanolGrams(volumeMl: 400, abv: 5) // ≈ 15.8 g
+        let shotG = ethanolGrams(volumeMl: 40, abv: 40) // ≈ 12.6 g
+        XCTAssertGreaterThan(beerG, shotG)
+        XCTAssertGreaterThan(peakPoisonExtra(shotG, 40), peakPoisonExtra(beerG, 5))
+
+        XCTAssertGreaterThan(alcoholNetMl(volumeMl: 400, abv: 5), 0)
+        XCTAssertLessThan(alcoholNetMl(volumeMl: 40, abv: 40), 0)
     }
 
     // #4
