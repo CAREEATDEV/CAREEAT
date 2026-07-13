@@ -1,5 +1,6 @@
 import {
   alcoholNetMl,
+  awakeHoursFromSleep,
   baseDrainMlPerHour,
   computeState,
   dailyNeedMl,
@@ -143,8 +144,34 @@ describe('#5 — two drinks cumulate, capped ×3 / 4 h', () => {
   });
 });
 
-describe('#6 — sport by sex', () => {
-  it('moderate 60 min → male loses ~800 mL', () => {
+describe('awakeHoursFromSleep', () => {
+  it('derives awake hours from the sleep window', () => {
+    expect(awakeHoursFromSleep(23, 7)).toBe(16); // sleeps 8 h across midnight
+    expect(awakeHoursFromSleep(0, 8)).toBe(16);
+    expect(awakeHoursFromSleep(1, 7)).toBe(18); // sleeps 6 h
+    expect(awakeHoursFromSleep(22, 6)).toBe(16);
+  });
+
+  it('start === end means no sleep window (24 h awake)', () => {
+    expect(awakeHoursFromSleep(7, 7)).toBe(24);
+  });
+});
+
+describe('#6 — sport (metabolic-heat sweat model)', () => {
+  it('session starting now accrues sweat over the window', () => {
+    const start = ts(10, 0);
+    const events: HydrationEvent[] = [
+      anchor(ts(10)),
+      { type: 'sport', at: start, durationMin: 45, intensity: 'moderate' },
+    ];
+    const atStart = computeState(events, start, P70);
+    const mid = computeState(events, start + 22 * 60_000, P70);
+    const atEnd = computeState(events, start + 45 * 60_000, P70);
+    expect(atStart.levelPct).toBeGreaterThan(mid.levelPct);
+    expect(mid.levelPct).toBeGreaterThan(atEnd.levelPct);
+  });
+
+  it('moderate 60 min → 70 kg male loses ~800 mL (calibration anchor)', () => {
     const events: HydrationEvent[] = [
       anchor(ts(10)),
       { type: 'sport', at: ts(10, 1), durationMin: 60, intensity: 'moderate' },
@@ -157,25 +184,51 @@ describe('#6 — sport by sex', () => {
     expect(sportLoss).toBeLessThan(820);
   });
 
-  it('moderate 60 min → female loses ~500 mL', () => {
+  it('female residual is ~10 % below male at matched mass/intensity', () => {
     const F70: UserProfile = { ...P70, sex: 'female' };
-    const events: HydrationEvent[] = [
-      anchor(ts(10)),
-      { type: 'sport', at: ts(10, 1), durationMin: 60, intensity: 'moderate' },
-    ];
-    const before = computeState(events, ts(10, 1), F70);
-    const after = computeState(events, ts(11, 1), F70);
-    const sportLoss = before.levelMl - after.levelMl - baseDrainMlPerHour(F70);
-    expect(sportLoss).toBeGreaterThan(485);
-    expect(sportLoss).toBeLessThan(515);
+    const male = sweatRateMlPerHour(P70, 'moderate');
+    const female = sweatRateMlPerHour(F70, 'moderate');
+    expect(female / male).toBeCloseTo(0.9, 5);
   });
 
-  it('sweatRate direct lookup matches spec', () => {
-    expect(sweatRateMlPerHour('male', 'moderate', null)).toBe(800);
-    expect(sweatRateMlPerHour('female', 'moderate', null)).toBe(500);
-    expect(sweatRateMlPerHour('male', 'light', null)).toBe(400);
-    expect(sweatRateMlPerHour('male', 'intense', null)).toBe(1200);
-    expect(sweatRateMlPerHour('male', 'intense', 30)).toBe(1600);
+  it('sweat scales with body mass (90 kg > 70 kg > 60 kg)', () => {
+    const p60: UserProfile = { ...P70, weightKg: 60 };
+    const p90: UserProfile = { ...P70, weightKg: 90 };
+    const s60 = sweatRateMlPerHour(p60, 'moderate');
+    const s70 = sweatRateMlPerHour(P70, 'moderate');
+    const s90 = sweatRateMlPerHour(p90, 'moderate');
+    expect(s90).toBeGreaterThan(s70);
+    expect(s70).toBeGreaterThan(s60);
+    // linear in mass: 90/70 ratio ≈ 1.286
+    expect(s90 / s70).toBeCloseTo(90 / 70, 5);
+  });
+
+  it('intensity ordering: intense > moderate > light', () => {
+    expect(sweatRateMlPerHour(P70, 'intense')).toBeGreaterThan(
+      sweatRateMlPerHour(P70, 'moderate')
+    );
+    expect(sweatRateMlPerHour(P70, 'moderate')).toBeGreaterThan(
+      sweatRateMlPerHour(P70, 'light')
+    );
+  });
+
+  it('heat and humidity raise the sweat rate', () => {
+    const hot: UserProfile = { ...P70, ambientTempC: 33 };
+    const humid: UserProfile = { ...P70, relativeHumidityPct: 85 };
+    expect(sweatRateMlPerHour(hot, 'moderate')).toBeGreaterThan(
+      sweatRateMlPerHour(P70, 'moderate')
+    );
+    expect(sweatRateMlPerHour(humid, 'moderate')).toBeGreaterThan(
+      sweatRateMlPerHour(P70, 'moderate')
+    );
+  });
+
+  it('sweatRate direct lookup matches calibration', () => {
+    const F70: UserProfile = { ...P70, sex: 'female' };
+    expect(sweatRateMlPerHour(P70, 'moderate')).toBeCloseTo(800.8, 1);
+    expect(sweatRateMlPerHour(F70, 'moderate')).toBeCloseTo(720.72, 1);
+    expect(sweatRateMlPerHour(P70, 'light')).toBeCloseTo(400.4, 1);
+    expect(sweatRateMlPerHour(P70, 'intense')).toBeCloseTo(1151.15, 1);
   });
 });
 

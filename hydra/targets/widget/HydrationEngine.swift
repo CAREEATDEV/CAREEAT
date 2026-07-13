@@ -19,6 +19,7 @@ struct UserProfile: Codable {
     var sleepStartHour: Double
     var sleepEndHour: Double
     var ambientTempC: Double?
+    var relativeHumidityPct: Double?
     var altitudeM: Double
     var dailyGoalOverrideMl: Double?
 
@@ -29,6 +30,7 @@ struct UserProfile: Codable {
         sleepStartHour: 23,
         sleepEndHour: 7,
         ambientTempC: nil,
+        relativeHumidityPct: nil,
         altitudeM: 0,
         dailyGoalOverrideMl: nil
     )
@@ -82,6 +84,12 @@ func baseDrainMlPerHour(_ p: UserProfile) -> Double {
     return dailyNeedMl(p) / p.awakeHours
 }
 
+// Awake hours derive from the sleep window (see TS engine).
+func awakeHoursFromSleep(_ sleepStartHour: Double, _ sleepEndHour: Double) -> Double {
+    let sleep = (sleepEndHour - sleepStartHour + 24).truncatingRemainder(dividingBy: 24)
+    return 24 - sleep
+}
+
 private func tempMultiplier(_ tempC: Double?) -> Double {
     guard let t = tempC else { return 1.0 }
     if t < 18 { return 0.9 }
@@ -94,14 +102,45 @@ private func altitudeMultiplier(_ altM: Double) -> Double {
     return altM > 2500 ? 1.03 : 1.0
 }
 
-func sweatRateMlPerHour(sex: Sex, intensity: SportIntensity, tempC: Double?) -> Double {
-    switch intensity {
-    case .light: return 400
-    case .moderate: return sex == .male ? 800 : 500
-    case .intense:
-        if let t = tempC, t > 28 { return 1600 }
-        return 1200
-    }
+// ————————— Sweat model (metabolic-heat based) — mirrors TS engine —————————
+// WBSR is driven by metabolic heat (body mass × intensity) then modulated by
+// the environment; the sex gap is mostly mass-driven, so only a small residual
+// sex factor remains. See src/engine/hydrationEngine.ts for the derivation.
+
+let SPORT_METS: [SportIntensity: Double] = [
+    .light: 4,
+    .moderate: 8,
+    .intense: 11.5,
+]
+let SWEAT_ML_PER_MET_KG_H: Double = 1.43
+let SWEAT_SEX_FACTOR_FEMALE: Double = 0.9
+
+private func sweatTempMultiplier(_ tempC: Double?) -> Double {
+    guard let t = tempC else { return 1.0 }
+    if t < 10 { return 0.75 }
+    if t < 18 { return 0.9 }
+    if t < 24 { return 1.0 }
+    if t < 28 { return 1.15 }
+    if t < 32 { return 1.35 }
+    return 1.6
+}
+
+private func humidityMultiplier(_ rh: Double?) -> Double {
+    guard let h = rh else { return 1.0 }
+    if h < 60 { return 1.0 }
+    if h < 70 { return 1.1 }
+    if h < 80 { return 1.2 }
+    return 1.3
+}
+
+func sweatRateMlPerHour(_ p: UserProfile, intensity: SportIntensity) -> Double {
+    let met = SPORT_METS[intensity] ?? 8
+    let sexFactor = p.sex == .female ? SWEAT_SEX_FACTOR_FEMALE : 1.0
+    let base = SWEAT_ML_PER_MET_KG_H * met * p.weightKg * sexFactor
+    return base
+        * sweatTempMultiplier(p.ambientTempC)
+        * humidityMultiplier(p.relativeHumidityPct)
+        * altitudeMultiplier(p.altitudeM)
 }
 
 func ethanolGrams(volumeMl: Double, abv: Double) -> Double {
@@ -162,6 +201,7 @@ private func effectiveProfile(_ events: [HydrationEvent], _ at: TimeInterval, _ 
             p.sleepStartHour = patch.sleepStartHour
             p.sleepEndHour = patch.sleepEndHour
             p.ambientTempC = patch.ambientTempC
+            p.relativeHumidityPct = patch.relativeHumidityPct
             p.altitudeM = patch.altitudeM
             p.dailyGoalOverrideMl = patch.dailyGoalOverrideMl
         }
@@ -186,7 +226,7 @@ private func sportLossMlOver(_ events: [HydrationEvent], _ t0: TimeInterval, _ t
         let s = max(e.at, t0)
         let en = min(endAt, t1)
         if en <= s { continue }
-        let rate = sweatRateMlPerHour(sex: p.sex, intensity: intensity, tempC: p.ambientTempC)
+        let rate = sweatRateMlPerHour(p, intensity: intensity)
         loss += rate * (en - s) / 3_600_000
     }
     return loss
@@ -350,10 +390,21 @@ func forecast(
         let mid = (t + next) / 2
         let p = effectiveProfile(events, mid, baseProfile)
         let poison = poisonMultiplierAt(events, mid)
-        level -= drainMlPerMs(p, poisonMult: poison, sleeping: isSleeping(at: mid, p)) * dt
-        level -= sportLossMlOver(events, t, next, p)
-        if ambleAt == nil && level <= amberT { ambleAt = next }
-        if redAt == nil && level < redT { redAt = next; break }
+        let before = level
+        let loss = drainMlPerMs(p, poisonMult: poison, sleeping: isSleeping(at: mid, p)) * dt
+                 + sportLossMlOver(events, t, next, p)
+        let after = before - loss
+        // Interpolate the crossing within the step for a second-precise result.
+        if ambleAt == nil && after <= amberT {
+            let frac = loss > 0 ? (before - amberT) / loss : 0
+            ambleAt = t + frac * dt
+        }
+        if redAt == nil && after < redT {
+            let frac = loss > 0 ? (before - redT) / loss : 0
+            redAt = t + frac * dt
+            break
+        }
+        level = after
         t = next
     }
     return (ambleAt, redAt)

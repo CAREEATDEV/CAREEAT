@@ -12,14 +12,20 @@
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
+    "android": {
+      "package": "com.hydraapp.hydra"
+    },
     "ios": {
       "bundleIdentifier": "com.hydraapp.hydra",
       "supportsTablet": false,
       "infoPlist": {
-        "UIBackgroundModes": []
+        "UIBackgroundModes": [],
+        "ITSAppUsesNonExemptEncryption": false
       },
       "entitlements": {
-        "com.apple.security.application-groups": ["group.com.hydraapp.hydra"]
+        "com.apple.security.application-groups": [
+          "group.com.hydraapp.hydra"
+        ]
       }
     },
     "plugins": [
@@ -27,7 +33,9 @@
       [
         "expo-build-properties",
         {
-          "ios": { "deploymentTarget": "16.0" }
+          "ios": {
+            "deploymentTarget": "16.0"
+          }
         }
       ],
       [
@@ -38,7 +46,28 @@
       ]
     ],
     "extra": {
-      "appGroupId": "group.com.hydraapp.hydra"
-    }
+      "appGroupId": "group.com.hydraapp.hydra",
+      "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "bundleIdentifier": "com.hydraapp.hydra.widget",
+                  "targetName": "HydraWidget",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.hydraapp.hydra"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "projectId": "4f3424ee-a698-4211-8958-04e12daf0911"
+      }
+    },
+    "owner": "cleeeeem"
   }
 }

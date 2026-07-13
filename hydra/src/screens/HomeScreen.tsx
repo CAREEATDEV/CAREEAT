@@ -1,33 +1,109 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SportActiveIndicator } from '../components/SportActiveIndicator';
 import { HydrationBar } from '../components/HydrationBar';
 import { LogButton } from '../components/LogButton';
+import { SportLogModal } from '../components/SportLogModal';
 import { useHydration } from '../store/useHydration';
-import { stateNow } from '../engine/hydrationEngine';
+import { computeState, forecastZoneCrossings, SportIntensity } from '../engine/hydrationEngine';
 import { C, FONTS } from '../theme/colors';
-import { computeGreenStreak, formatCountdown } from '../util/time';
+import { formatCountdownPrecise } from '../util/time';
+import { greenStreak } from '../util/stats';
+import {
+  activeSportSessions,
+  formatSportRemaining,
+  sportDrainSummary,
+} from '../util/sport';
+
+const DISPLAY_FORECAST_MS = 24 * 3600_000;
 
 export function HomeScreen() {
-  const { events, profile, presets, logPreset, logSport, undo } = useHydration();
-  const [tick, setTick] = useState(0);
+  const { events, profile, widget, logPreset, logWater, logSport, undo } =
+    useHydration();
+  const [nowMs, setNowMs] = useState(Date.now());
   const [toast, setToast] = useState<string | null>(null);
+  const [sportOpen, setSportOpen] = useState(false);
+
+  // Tick every second so the bar drains live and sport/alcohol effects unfold
+  // in real time (sport loss accrues over its duration window).
   useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 15_000);
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
-  const state = stateNow(events, profile);
-  const streak = computeGreenStreak(events);
 
-  const findPreset = (key: string) => presets.find((p) => p.key === key);
+  const state = useMemo(
+    () => computeState(events, nowMs, profile),
+    [events, profile, nowMs]
+  );
+
+  const redAt = useMemo(
+    () =>
+      state.redAt ??
+      forecastZoneCrossings(
+        events,
+        nowMs,
+        state.levelMl,
+        profile,
+        DISPLAY_FORECAST_MS
+      ).redAt,
+    [events, profile, nowMs, state.levelMl, state.redAt]
+  );
+
+  const streak = greenStreak(events, nowMs, state.dailyNeedMl);
+
+  const sportSessions = useMemo(
+    () => activeSportSessions(events, nowMs, profile),
+    [events, nowMs, profile]
+  );
+  const sportDrain = useMemo(
+    () => sportDrainSummary(sportSessions, profile),
+    [sportSessions, profile]
+  );
+  const sportActive = sportSessions.length > 0;
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2800);
+  };
+
+  const onSaturated = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    showToast('SATURÉ · ton corps ne peut pas absorber plus vite. Attends un peu.');
+  };
 
   const drink = async (key: string) => {
     const r = await logPreset(key);
-    if (!r.ok && r.reason === 'saturated') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-      setToast('SATURÉ · ton corps ne peut pas absorber plus vite. Attends un peu.');
-      setTimeout(() => setToast(null), 2800);
+    if (!r.ok && r.reason === 'saturated') onSaturated();
+  };
+
+  const drinkWater = async () => {
+    const r = await logWater(widget.defaultWaterMl);
+    if (!r.ok && r.reason === 'saturated') onSaturated();
+  };
+
+  const onSportBlocked = (remainingSec: number) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    showToast(
+      `SÉANCE EN COURS · termine dans ${formatSportRemaining(remainingSec)}`
+    );
+  };
+
+  const openSport = () => {
+    if (sportActive && sportSessions[0]) {
+      onSportBlocked(sportSessions[0].remainingSec);
+      return;
     }
+    setSportOpen(true);
+  };
+
+  const onSport = async (durationMin: number, intensity: SportIntensity) => {
+    const r = await logSport(durationMin, intensity);
+    if (!r.ok && r.reason === 'session_active') {
+      onSportBlocked(r.remainingSec);
+      return;
+    }
+    showToast(`SÉANCE DÉMARRÉE · ${durationMin} min · sueur en cours`);
   };
 
   return (
@@ -38,77 +114,66 @@ export function HomeScreen() {
           <Text style={styles.streak}>STREAK {streak}</Text>
         </View>
         <View style={styles.body}>
-          <HydrationBar state={state} segments={20} height={56} />
+          <SportActiveIndicator sessions={sportSessions} drain={sportDrain} />
+          <HydrationBar
+            state={state}
+            segments={20}
+            height={56}
+            sportActive={sportActive}
+          />
 
           <View style={styles.countdownRow}>
             <Text style={styles.cdLabel}>ROUGE DANS</Text>
-            <Text style={styles.cdVal}>{formatCountdown(state.redAt)}</Text>
+            <Text style={styles.cdVal}>
+              {formatCountdownPrecise(redAt, nowMs)}
+            </Text>
           </View>
 
           {toast ? <Text style={styles.toast}>{toast}</Text> : null}
 
-          <View style={styles.grid}>
-            <LogButton
-              label="EAU"
-              sub={`+${findPreset('water')?.volumeMl ?? 250}ml`}
-              color={C.segmentFull}
-              onPress={() => drink('water')}
-            />
-            <LogButton
-              label="BOUTEILLE"
-              sub={`+${findPreset('water_bottle')?.volumeMl ?? 500}ml`}
-              color={C.segmentFull}
-              onPress={() => drink('water_bottle')}
-            />
-          </View>
+          <LogButton
+            label="EAU"
+            sub={`+${widget.defaultWaterMl} ml`}
+            color={C.segmentFull}
+            onPress={drinkWater}
+          />
 
           <View style={styles.grid}>
             <LogButton
               label="ALCOOL LÉGER"
-              sub="2–8°  bière, cidre"
+              sub="2–8°"
               color={C.amber}
               onPress={() => drink('alcohol_light')}
             />
             <LogButton
               label="ALCOOL MOYEN"
-              sub="9–22°  vin, cocktail"
+              sub="9–22°"
               color={C.amber}
               onPress={() => drink('alcohol_medium')}
             />
           </View>
 
-          <View style={styles.grid}>
-            <LogButton
-              label="ALCOOL FORT"
-              sub="30–45°  spiritueux"
-              color={C.red}
-              onPress={() => drink('alcohol_strong')}
-            />
-            <LogButton
-              label="ÉLECTROLYTES"
-              sub="+500ml · rétention ×1.1"
-              color={C.segmentFull}
-              onPress={() => drink('electrolytes')}
-            />
-          </View>
-
-          <View style={styles.grid}>
-            <LogButton
-              label="SPORT MODÉRÉ"
-              sub="30 min"
-              color={C.text}
-              onPress={() => logSport(30, 'moderate')}
-            />
-            <LogButton
-              label="SPORT INTENSE"
-              sub="30 min"
-              color={C.text}
-              onPress={() => logSport(30, 'intense')}
-            />
-          </View>
+          <LogButton
+            label="ALCOOL FORT"
+            sub="30–45°  spiritueux"
+            color={C.red}
+            onPress={() => drink('alcohol_strong')}
+          />
 
           <LogButton
-            label="UNDO DERNIER LOG"
+            label="SPORT"
+            sub={
+              sportActive
+                ? 'séance en cours'
+                : 'modéré ou intense · durée'
+            }
+            color={sportActive ? C.textDim : C.text}
+            onPress={openSport}
+          />
+
+          <LogButton
+            label="ANNULER LE DERNIER AJOUT"
+            sub="retire eau, alcool ou sport"
             color={C.textDim}
             onPress={() => undo()}
           />
@@ -119,8 +184,13 @@ export function HomeScreen() {
             {Math.round(state.absorbedLastHourMl)}/{state.absorbCapMl} mL
           </Text>
         </View>
-        <Text style={styles.hidden}>TICK {tick}</Text>
       </ScrollView>
+
+      <SportLogModal
+        visible={sportOpen}
+        onClose={() => setSportOpen(false)}
+        onConfirm={onSport}
+      />
     </SafeAreaView>
   );
 }
@@ -167,5 +237,4 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.mono,
     fontSize: 11,
   },
-  hidden: { color: '#000', fontSize: 0 },
 });

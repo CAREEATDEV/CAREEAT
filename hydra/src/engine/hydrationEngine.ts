@@ -15,6 +15,7 @@ export interface UserProfile {
   sleepStartHour: number;
   sleepEndHour: number;
   ambientTempC: number | null;    // null = 20°C reference (no penalty)
+  relativeHumidityPct: number | null; // null = temperate reference (no penalty)
   altitudeM: number;
   dailyGoalOverrideMl: number | null; // let user pin a goal manually
 }
@@ -26,6 +27,7 @@ export const DEFAULT_PROFILE: UserProfile = {
   sleepStartHour: 23,
   sleepEndHour: 7,
   ambientTempC: null,
+  relativeHumidityPct: null,
   altitudeM: 0,
   dailyGoalOverrideMl: null,
 };
@@ -82,6 +84,17 @@ export function baseDrainMlPerHour(p: UserProfile): number {
   return dailyNeedMl(p) / p.awakeHours;
 }
 
+// Awake hours are fully determined by the sleep window, so we derive them
+// rather than asking twice. Wraps around midnight; if start === end (no sleep
+// window) the result is 24 h awake — consistent with isSleeping().
+export function awakeHoursFromSleep(
+  sleepStartHour: number,
+  sleepEndHour: number
+): number {
+  const sleep = (sleepEndHour - sleepStartHour + 24) % 24;
+  return 24 - sleep;
+}
+
 function tempMultiplier(tempC: number | null): number {
   if (tempC == null) return 1.0;
   if (tempC < 18) return 0.9;
@@ -95,18 +108,69 @@ function altitudeMultiplier(altM: number): number {
   return altM > 2500 ? 1.03 : 1.0;
 }
 
-// Baker 2017 + heat literature. Intense sport in heat >28°C is the only
-// case where sex stops mattering — everyone sweats a lot.
+// ————————— Sweat model (metabolic-heat based) —————————
+//
+// The physiology (Cramer & Jay 2016, Gagnon & Kenny, Baker/GSSI 2017–2022):
+// whole-body sweat rate is driven, above all, by the evaporative requirement
+// for heat balance — i.e. metabolic heat production (Hprod), which scales with
+// BODY MASS × exercise INTENSITY — then modulated by the environment. The
+// classic "men sweat more" gap is mostly a body-mass artefact; at equal Hprod
+// the intrinsic sex difference is small. So instead of fixed per-sex tiers, we
+// compute sweat from mass × intensity and keep only a modest sex residual.
+
+// Approximate metabolic cost (METs) of each effort category.
+export const SPORT_METS: Record<SportIntensity, number> = {
+  light: 4,
+  moderate: 8,
+  intense: 11.5,
+};
+
+// mL of sweat per (MET · kg · h). Calibrated so a 70 kg male at 8 METs in
+// temperate conditions ≈ 800 mL/h (Baker/GSSI field average), while now
+// scaling with mass and intensity. Derivation: metabolic power ≈ 1.22 W per
+// MET·kg; ~80 % becomes heat; evaporating 1 g of sweat removes 2426 J, so
+// mL/h ≈ W × 3600 / 2426 → 1.22 × 0.80 × 3600 / 2426 ≈ 1.43.
+export const SWEAT_ML_PER_MET_KG_H = 1.43;
+
+// Residual sex effect once body mass is accounted for (avoids double-counting
+// the mass-driven gap). Females ~10 % lower at matched mass/intensity.
+export const SWEAT_SEX_FACTOR_FEMALE = 0.9;
+
+// Heat drives sweat harder than it drives passive drain, so this curve is
+// steeper than tempMultiplier. null ≈ temperate (~20 °C) reference = 1.0.
+function sweatTempMultiplier(tempC: number | null): number {
+  if (tempC == null) return 1.0;
+  if (tempC < 10) return 0.75;
+  if (tempC < 18) return 0.9;
+  if (tempC < 24) return 1.0;
+  if (tempC < 28) return 1.15;
+  if (tempC < 32) return 1.35;
+  return 1.6;
+}
+
+// Above ~60 % RH evaporation is impaired, so the body over-produces sweat to
+// try to shed heat → greater fluid loss. null = temperate reference = 1.0.
+function humidityMultiplier(rh: number | null): number {
+  if (rh == null) return 1.0;
+  if (rh < 60) return 1.0;
+  if (rh < 70) return 1.1;
+  if (rh < 80) return 1.2;
+  return 1.3;
+}
+
 export function sweatRateMlPerHour(
-  sex: Sex,
-  intensity: SportIntensity,
-  tempC: number | null
+  p: UserProfile,
+  intensity: SportIntensity
 ): number {
-  if (intensity === 'light') return 400;
-  if (intensity === 'moderate') return sex === 'male' ? 800 : 500;
-  // intense
-  if (tempC != null && tempC > 28) return 1600;
-  return 1200;
+  const met = SPORT_METS[intensity];
+  const sexFactor = p.sex === 'female' ? SWEAT_SEX_FACTOR_FEMALE : 1.0;
+  const base = SWEAT_ML_PER_MET_KG_H * met * p.weightKg * sexFactor;
+  return (
+    base *
+    sweatTempMultiplier(p.ambientTempC) *
+    humidityMultiplier(p.relativeHumidityPct) *
+    altitudeMultiplier(p.altitudeM)
+  );
 }
 
 export function ethanolGrams(volumeMl: number, abv: number): number {
@@ -212,7 +276,7 @@ function sportLossMlOver(
     const s = Math.max(e.at, t0);
     const en = Math.min(endAt, t1);
     if (en <= s) continue;
-    loss += (sweatRateMlPerHour(p.sex, e.intensity, p.ambientTempC) * (en - s)) / 3600_000;
+    loss += (sweatRateMlPerHour(p, e.intensity) * (en - s)) / 3600_000;
   }
   return loss;
 }
@@ -428,13 +492,25 @@ export function forecastZoneCrossings(
     const mid = (t + next) / 2;
     const p = effectiveProfile(events, mid, baseProfile);
     const poison = poisonMultiplierAt(events, mid);
-    level -= drainMlPerMs(p, poison, isSleeping(mid, p)) * dt;
-    level -= sportLossMlOver(events, t, next, p);
-    if (ambleAt == null && level <= amberThresh) ambleAt = next;
-    if (redAt == null && level < redThresh) {
-      redAt = next;
+    const before = level;
+    const loss =
+      drainMlPerMs(p, poison, isSleeping(mid, p)) * dt +
+      sportLossMlOver(events, t, next, p);
+    const after = before - loss;
+    // Linearly interpolate the crossing WITHIN this step so the returned
+    // timestamp is second-precise — otherwise the live countdown would be
+    // quantized to whole minutes (seconds stuck at 00) since it recomputes
+    // every tick from `now`.
+    if (ambleAt == null && after <= amberThresh) {
+      const frac = loss > 0 ? (before - amberThresh) / loss : 0;
+      ambleAt = t + frac * dt;
+    }
+    if (redAt == null && after < redThresh) {
+      const frac = loss > 0 ? (before - redThresh) / loss : 0;
+      redAt = t + frac * dt;
       break;
     }
+    level = after;
     t = next;
   }
   return { ambleAt, redAt };

@@ -5,6 +5,8 @@ web-build/
 ios/
 android/
 .env
+credentials.json
+android/keystores/
 *.log
 .DS_Store
 coverage/

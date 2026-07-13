@@ -7,25 +7,20 @@ export function formatCountdown(target: number | null, from: number = Date.now()
   return `${m}min`;
 }
 
-export function computeGreenStreak(events: { at: number; type: string }[]): number {
-  // Very simple heuristic: a day is "in the green" if we have >=1 water event
-  // for it. Placeholder until we build proper daily aggregates.
-  const days = new Set<string>();
-  for (const e of events) {
-    if (e.type !== 'drink') continue;
-    const d = new Date(e.at);
-    days.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
-  }
-  let streak = 0;
-  const cur = new Date();
-  while (true) {
-    const key = `${cur.getFullYear()}-${cur.getMonth()}-${cur.getDate()}`;
-    if (days.has(key)) {
-      streak++;
-      cur.setDate(cur.getDate() - 1);
-    } else {
-      break;
-    }
-  }
-  return streak;
+// Second-precise variant for the live "ROUGE DANS" timer on the BARRE screen —
+// the ticking seconds make the drain feel real. (The native widget can't tick
+// per second, so it keeps the coarse formatCountdown above.)
+export function formatCountdownPrecise(
+  target: number | null,
+  from: number = Date.now()
+): string {
+  if (!target || target <= from) return '—';
+  const total = Math.max(0, Math.round((target - from) / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  if (h > 0) return `${h}h ${pad(m)}m ${pad(s)}s`;
+  if (m > 0) return `${m}m ${pad(s)}s`;
+  return `${s}s`;
 }

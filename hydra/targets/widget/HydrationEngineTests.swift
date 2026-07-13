@@ -14,7 +14,8 @@ final class HydrationEngineTests: XCTestCase {
     private let P70 = UserProfile(
         weightKg: 70, sex: .male, awakeHours: 16,
         sleepStartHour: 23, sleepEndHour: 7,
-        ambientTempC: nil, altitudeM: 0, dailyGoalOverrideMl: nil
+        ambientTempC: nil, relativeHumidityPct: nil,
+        altitudeM: 0, dailyGoalOverrideMl: nil
     )
     private func anchor(_ at: TimeInterval) -> HydrationEvent {
         HydrationEvent(type: .water, at: at, volumeMl: 1, abv: nil,
@@ -122,17 +123,22 @@ final class HydrationEngineTests: XCTestCase {
         XCTAssertGreaterThan(sportLoss, 780)
         XCTAssertLessThan(sportLoss, 820)
 
+        // Female residual is ~10 % below male at matched mass/intensity.
         var F70 = P70; F70.sex = .female
-        let female = male
-        let fBefore = computeState(events: female, at: ts(10, 1), profile: F70)
-        let fAfter = computeState(events: female, at: ts(11, 1), profile: F70)
-        let fLoss = fBefore.levelMl - fAfter.levelMl - baseDrainMlPerHour(F70)
-        XCTAssertGreaterThan(fLoss, 485)
-        XCTAssertLessThan(fLoss, 515)
+        let ratio = sweatRateMlPerHour(F70, intensity: .moderate)
+                  / sweatRateMlPerHour(P70, intensity: .moderate)
+        XCTAssertEqual(ratio, 0.9, accuracy: 1e-6)
 
-        XCTAssertEqual(sweatRateMlPerHour(sex: .male, intensity: .moderate, tempC: nil), 800)
-        XCTAssertEqual(sweatRateMlPerHour(sex: .female, intensity: .moderate, tempC: nil), 500)
-        XCTAssertEqual(sweatRateMlPerHour(sex: .male, intensity: .intense, tempC: 30), 1600)
+        // Metabolic-heat calibration (70 kg male, temperate).
+        XCTAssertEqual(sweatRateMlPerHour(P70, intensity: .moderate), 800.8, accuracy: 0.1)
+        XCTAssertEqual(sweatRateMlPerHour(P70, intensity: .light), 400.4, accuracy: 0.1)
+        XCTAssertEqual(sweatRateMlPerHour(P70, intensity: .intense), 1151.15, accuracy: 0.1)
+
+        // Sweat scales linearly with body mass.
+        var P90 = P70; P90.weightKg = 90
+        let massRatio = sweatRateMlPerHour(P90, intensity: .moderate)
+                      / sweatRateMlPerHour(P70, intensity: .moderate)
+        XCTAssertEqual(massRatio, 90.0 / 70.0, accuracy: 1e-6)
     }
 
     // Water absorption cap (~1000 mL / rolling hour)

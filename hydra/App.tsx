@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
@@ -7,12 +7,38 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { View, Text } from 'react-native';
 import { HomeScreen } from './src/screens/HomeScreen';
-import { HistoryScreen } from './src/screens/HistoryScreen';
-import { SettingsScreen } from './src/screens/SettingsScreen';
+import { DataScreen } from './src/screens/DataScreen';
+import { WidgetsScreen } from './src/screens/WidgetsScreen';
+import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { C, FONTS } from './src/theme/colors';
 import { ensurePermissions } from './src/notifications/scheduler';
+import { useHydration } from './src/store/useHydration';
 
 const Tab = createBottomTabNavigator();
+
+function Splash() {
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: C.bg,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Text
+        style={{
+          color: C.segmentFull,
+          fontFamily: FONTS.display,
+          fontSize: 40,
+          letterSpacing: 10,
+        }}
+      >
+        HYDRA
+      </Text>
+    </View>
+  );
+}
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -22,15 +48,34 @@ export default function App() {
     'IBMPlexMono-Bold': require('./assets/fonts/IBMPlexMono-Bold.ttf'),
   });
 
+  const onboarded = useHydration((s) => s.onboarded);
+  const [storeHydrated, setStoreHydrated] = useState(
+    useHydration.persist.hasHydrated()
+  );
+
   useEffect(() => {
     ensurePermissions().catch(() => {});
+    const unsub = useHydration.persist.onFinishHydration(() =>
+      setStoreHydrated(true)
+    );
+    setStoreHydrated(useHydration.persist.hasHydrated());
+    return unsub;
   }, []);
 
-  if (!fontsLoaded) {
+  // Wait for fonts AND persisted state before deciding what to show, so we never
+  // flash the onboarding for a returning user.
+  if (!fontsLoaded || !storeHydrated) {
+    return <Splash />;
+  }
+
+  if (!onboarded) {
     return (
-      <View style={{ flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: C.text, fontSize: 22, letterSpacing: 6 }}>HYDRA</Text>
-      </View>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <StatusBar style="light" />
+          <OnboardingScreen />
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
     );
   }
 
@@ -60,9 +105,27 @@ export default function App() {
               tabBarLabelStyle: { fontFamily: FONTS.label, letterSpacing: 2 },
             }}
           >
-            <Tab.Screen name="BAR" component={HomeScreen} />
-            <Tab.Screen name="LOG" component={HistoryScreen} />
-            <Tab.Screen name="RÉGLAGES" component={SettingsScreen} />
+            <Tab.Screen name="BARRE" component={HomeScreen} />
+            <Tab.Screen name="DONNÉES" component={DataScreen} />
+            <Tab.Screen
+              name="WIDGETS"
+              component={WidgetsScreen}
+              options={{
+                tabBarLabel: ({ focused }) => (
+                  <Text
+                    style={{
+                      fontFamily: FONTS.display,
+                      letterSpacing: 2,
+                      fontSize: 12,
+                      color: C.segmentFull,
+                      opacity: focused ? 1 : 0.75,
+                    }}
+                  >
+                    ★ WIDGETS
+                  </Text>
+                ),
+              }}
+            />
           </Tab.Navigator>
         </NavigationContainer>
       </SafeAreaProvider>

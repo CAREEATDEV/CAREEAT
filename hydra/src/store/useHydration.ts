@@ -12,23 +12,40 @@ import {
 } from '../engine/hydrationEngine';
 
 export type LogResult = { ok: true } | { ok: false; reason: 'saturated'; remainingMl: number };
+export type SportLogResult =
+  | { ok: true }
+  | { ok: false; reason: 'session_active'; remainingSec: number };
 import {
   reloadWidgetTimelines,
   writeSharedSnapshot,
 } from '../native/appGroupBridge';
+import {
+  DEFAULT_WIDGET_SETTINGS,
+  WidgetSettings,
+} from './widgetSettings';
 import { rescheduleNotifications } from '../notifications/scheduler';
+import { activeSportSessions } from '../util/sport';
 
 interface HydraState {
   events: HydrationEvent[];
   profile: UserProfile;
   presets: DrinkPreset[];
+  widget: WidgetSettings;
   hydrated: boolean;
+  onboarded: boolean;
+  completeOnboarding: (
+    profilePatch: Partial<UserProfile>,
+    widgetPatch: Partial<WidgetSettings>
+  ) => Promise<void>;
   logPreset: (key: string) => Promise<LogResult>;
+  logWater: (volumeMl: number) => Promise<LogResult>;
   logCustomDrink: (kind: 'water' | 'electrolytes' | 'alcohol' | 'caffeine', args: { volumeMl: number; abv?: number; caffeineMg?: number }) => Promise<void>;
-  logSport: (durationMin: number, intensity: SportIntensity) => Promise<void>;
+  logSport: (durationMin: number, intensity: SportIntensity) => Promise<SportLogResult>;
   undo: () => Promise<void>;
   deleteEvent: (at: number) => Promise<void>;
   updateProfile: (patch: Partial<UserProfile>) => Promise<void>;
+  updateWidget: (patch: Partial<WidgetSettings>) => Promise<void>;
+  refreshWidget: () => Promise<void>;
   _sync: () => Promise<void>;
 }
 
@@ -38,7 +55,23 @@ export const useHydration = create<HydraState>()(
       events: [],
       profile: DEFAULT_PROFILE,
       presets: DEFAULT_PRESETS,
+      widget: DEFAULT_WIDGET_SETTINGS,
       hydrated: false,
+      onboarded: false,
+
+      // First-run setup: apply the collected profile + water container in one
+      // shot (single profile event, single sync) and flip the onboarded flag.
+      async completeOnboarding(profilePatch, widgetPatch) {
+        const nextProfile = { ...get().profile, ...profilePatch };
+        const evt: HydrationEvent = { type: 'profile', at: Date.now(), patch: profilePatch };
+        set({
+          profile: nextProfile,
+          widget: { ...get().widget, ...widgetPatch },
+          events: [...get().events, evt],
+          onboarded: true,
+        });
+        await get()._sync();
+      },
 
       async logPreset(key): Promise<LogResult> {
         const preset = get().presets.find((p) => p.key === key);
@@ -62,6 +95,17 @@ export const useHydration = create<HydraState>()(
         return { ok: true };
       },
 
+      async logWater(volumeMl): Promise<LogResult> {
+        const at = Date.now();
+        const remaining = remainingAbsorptionMl(get().events, at);
+        if (remaining < 30) {
+          return { ok: false, reason: 'saturated', remainingMl: remaining };
+        }
+        set({ events: [...get().events, { type: 'water', at, volumeMl }] });
+        await get()._sync();
+        return { ok: true };
+      },
+
       async logCustomDrink(kind, args) {
         const at = Date.now();
         let e: HydrationEvent;
@@ -73,12 +117,22 @@ export const useHydration = create<HydraState>()(
         await get()._sync();
       },
 
-      async logSport(durationMin, intensity) {
+      async logSport(durationMin, intensity): Promise<SportLogResult> {
         const at = Date.now();
+        const { events, profile } = get();
+        const active = activeSportSessions(events, at, profile);
+        if (active.length > 0) {
+          return {
+            ok: false,
+            reason: 'session_active',
+            remainingSec: active[0].remainingSec,
+          };
+        }
         set({
-          events: [...get().events, { type: 'sport', at, durationMin, intensity }],
+          events: [...events, { type: 'sport', at, durationMin, intensity }],
         });
         await get()._sync();
+        return { ok: true };
       },
 
       async undo() {
@@ -106,13 +160,25 @@ export const useHydration = create<HydraState>()(
         await get()._sync();
       },
 
+      async updateWidget(patch) {
+        set({ widget: { ...get().widget, ...patch } });
+        // Widget prefs live app-side; still push a fresh snapshot + reload so
+        // the widget picks up any profile-driven values immediately.
+        await get()._sync();
+      },
+
+      async refreshWidget() {
+        await get()._sync();
+      },
+
       async _sync() {
-        const { events, profile } = get();
+        const { events, profile, widget } = get();
         await writeSharedSnapshot({
           version: 2,
           updatedAt: Date.now(),
           events,
           profile,
+          widget,
         });
         await reloadWidgetTimelines();
         await rescheduleNotifications(events, profile);
@@ -121,6 +187,13 @@ export const useHydration = create<HydraState>()(
     {
       name: 'hydra.v2',
       storage: createJSONStorage(() => AsyncStorage),
+      partialize: (s) => ({
+        events: s.events,
+        profile: s.profile,
+        presets: s.presets,
+        widget: s.widget,
+        onboarded: s.onboarded,
+      }),
       onRehydrateStorage: () => (state) => {
         state?._sync().catch(() => {});
         if (state) state.hydrated = true;

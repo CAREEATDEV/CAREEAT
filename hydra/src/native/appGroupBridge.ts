@@ -1,14 +1,18 @@
 import { NativeModules, Platform } from 'react-native';
 import Constants from 'expo-constants';
 import type { HydrationEvent, UserProfile } from '../engine/hydrationEngine';
+import type { WidgetSettings } from '../store/widgetSettings';
 
-// Snapshot format shared with the Swift widget. Any shape change requires
-// bumping `version` and updating the Swift SharedSnapshot decoder in lockstep.
+// Snapshot format shared with the Swift widget. `version` stays 2: the Swift
+// SharedSnapshot decoder reads version/updatedAt/events/profile and ignores
+// unknown keys, so the optional `widget` field below is backward compatible and
+// requires NO change to targets/widget/HydraWidget.swift.
 export interface SharedSnapshot {
   version: 2;
   updatedAt: number;
   events: HydrationEvent[];
   profile: UserProfile;
+  widget?: WidgetSettings;
 }
 
 const APP_GROUP =

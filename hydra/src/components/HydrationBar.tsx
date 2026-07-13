@@ -8,9 +8,17 @@ interface Props {
   segments?: number;
   height?: number;
   style?: ViewStyle;
+  /** Pulsing border while a sport session window is active. */
+  sportActive?: boolean;
 }
 
-export function HydrationBar({ state, segments = 20, height = 44, style }: Props) {
+export function HydrationBar({
+  state,
+  segments = 20,
+  height = 44,
+  style,
+  sportActive = false,
+}: Props) {
   const filled = Math.round((state.levelPct / 100) * segments);
   const zoneColor =
     state.zone === 'poison'
@@ -22,7 +30,13 @@ export function HydrationBar({ state, segments = 20, height = 44, style }: Props
       : C.segmentFull;
   return (
     <View style={[styles.wrap, style]}>
-      <View style={[styles.bar, { height }]}>
+      <View
+        style={[
+          styles.bar,
+          { height },
+          sportActive && styles.barSportActive,
+        ]}
+      >
         {Array.from({ length: segments }).map((_, i) => {
           const on = i < filled;
           return (
@@ -69,6 +83,14 @@ const styles = StyleSheet.create({
     padding: 4,
     borderRadius: RADIUS.md,
     backgroundColor: C.bgSoft,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  barSportActive: {
+    borderColor: C.text,
+    shadowColor: C.text,
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
   },
   seg: { flex: 1, borderRadius: 3, shadowOpacity: 0.7, shadowRadius: 4 },
   metaRow: {
