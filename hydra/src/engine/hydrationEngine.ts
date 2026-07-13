@@ -340,17 +340,25 @@ export function zoneOf(pct: number, poisoned: boolean): Zone {
 
 // ————————— Instantaneous drink impact (mL) —————————
 
-// Alcohol Layer A: honest net water balance from the drink. The diuresis term
-// is gated by concentration (see concentrationFactor): a dilute drink like beer
-// barely triggers extra urine, so it stays hydration-neutral-to-positive, while
-// spirits carry the full Eggleton loss.
-export function alcoholNetMl(volumeMl: number, abv: number): number {
-  const waterInDrink = volumeMl * (1 - abv / 100);
-  const diuresis =
+// Alcohol diuresis (excretion). Gated by concentration (see concentrationFactor):
+// a dilute drink like beer barely triggers extra urine, spirits carry the full
+// Eggleton loss. This is an *excretion* effect, so it is NOT limited by the
+// gastric/renal absorption cap — it always applies in full.
+export function alcoholDiuresisMl(volumeMl: number, abv: number): number {
+  return (
     ethanolGrams(volumeMl, abv) *
     DIURESIS_ML_PER_G_ETHANOL *
-    concentrationFactor(abv);
-  return waterInDrink - diuresis;
+    concentrationFactor(abv)
+  );
+}
+
+// Alcohol Layer A: honest net water balance for a SINGLE drink in isolation
+// (uncapped water). The water in the drink is subject to the hourly absorption
+// cap in the real timeline (see creditedWaterMl / applyEventImpact); this helper
+// is the reference value when absorption capacity is available.
+export function alcoholNetMl(volumeMl: number, abv: number): number {
+  const waterInDrink = volumeMl * (1 - abv / 100);
+  return waterInDrink - alcoholDiuresisMl(volumeMl, abv);
 }
 
 function caffeineNetMl(e: Extract<HydrationEvent, { type: 'caffeine' }>): number {
@@ -361,35 +369,45 @@ function caffeineNetMl(e: Extract<HydrationEvent, { type: 'caffeine' }>): number
   return e.volumeMl;
 }
 
-// Credit each water/electrolyte event only up to the rolling hourly
-// absorption cap. Returns an array parallel to `sorted`: the mL that actually
-// count toward the bar for each event (0 for non-water events). Water drunk
+// Fluid volume an event puts into the gut, competing for absorption capacity.
+// Alcohol counts by its WATER content (the ethanol fraction isn't hydration):
+// a litre of wine floods the gut with water just like a litre of water, so it
+// hits the same ~1 L/h absorption ceiling.
+function fluidIntakeMl(e: HydrationEvent): number {
+  if (e.type === 'water' || e.type === 'electrolytes') return e.volumeMl;
+  if (e.type === 'alcohol') return e.volumeMl * (1 - e.abv / 100);
+  return 0;
+}
+
+// Credit each fluid event (water, electrolytes, AND alcohol's water) only up to
+// the rolling hourly absorption cap. Returns an array parallel to `sorted`: the
+// mL that actually count toward the bar (0 for non-fluid events). Fluid drunk
 // past the cap within the trailing hour is "overflow" — excreted, not stored.
 export function creditedWaterMl(sorted: HydrationEvent[]): number[] {
   const credited: number[] = new Array(sorted.length).fill(0);
   const hist: { at: number; credited: number }[] = [];
   for (let i = 0; i < sorted.length; i++) {
     const e = sorted[i];
-    if (e.type !== 'water' && e.type !== 'electrolytes') continue;
+    const intake = fluidIntakeMl(e);
+    if (intake <= 0) continue;
     let used = 0;
     for (const h of hist) {
       if (h.at > e.at - ABSORB_WINDOW_MS && h.at <= e.at) used += h.credited;
     }
     const remaining = Math.max(0, MAX_WATER_ABSORB_ML_PER_H - used);
-    const cred = Math.min(e.volumeMl, remaining);
+    const cred = Math.min(intake, remaining);
     credited[i] = cred;
     hist.push({ at: e.at, credited: cred });
   }
   return credited;
 }
 
-// How much water (credited) has been absorbed in the hour ending at `at`.
+// How much fluid (credited) has been absorbed in the hour ending at `at`.
 export function waterAbsorbedInWindow(sorted: HydrationEvent[], at: number): number {
   const credited = creditedWaterMl(sorted);
   let used = 0;
   for (let i = 0; i < sorted.length; i++) {
     const e = sorted[i];
-    if (e.type !== 'water' && e.type !== 'electrolytes') continue;
     if (e.at > at - ABSORB_WINDOW_MS && e.at <= at) used += credited[i];
   }
   return used;
@@ -407,7 +425,14 @@ function applyEventImpact(
     case 'electrolytes':
       return clamp(levelMl + creditedMl * 1.1, 0, cap);
     case 'alcohol':
-      return clamp(levelMl + alcoholNetMl(event.volumeMl, event.abv), 0, cap);
+      // Absorbed water (creditedMl, capped by the hourly limit) minus the full
+      // diuresis. Once the absorption cap is saturated creditedMl → 0, so extra
+      // drinks only carry their diuretic loss: bingeing can push net negative.
+      return clamp(
+        levelMl + creditedMl - alcoholDiuresisMl(event.volumeMl, event.abv),
+        0,
+        cap
+      );
     case 'caffeine':
       return clamp(levelMl + caffeineNetMl(event), 0, cap);
     case 'sport':

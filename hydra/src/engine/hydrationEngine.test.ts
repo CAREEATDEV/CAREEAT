@@ -351,6 +351,40 @@ describe('water absorption cap (~1000 mL / rolling hour)', () => {
     // an hour later the window has rolled past → full capacity again
     expect(remainingAbsorptionMl(events, ts(11, 1))).toBeCloseTo(1000, 0);
   });
+
+  it("alcohol's water counts toward the absorption cap", () => {
+    // A 1 L beer floods the gut like 1 L of water: it should consume ~950 mL
+    // (its water fraction) of the hourly absorption budget.
+    const events: HydrationEvent[] = [
+      { type: 'water', at: ts(8), volumeMl: 1 }, // anchor + drain room
+      { type: 'alcohol', at: ts(20), volumeMl: 1000, abv: 5 },
+    ];
+    expect(remainingAbsorptionMl(events, ts(20, 1))).toBeLessThan(100);
+  });
+
+  it('a drink taken while already saturated cannot add water (net ≤ 0)', () => {
+    // Saturate the hour with 1 L water, then a beer 1 min later: its water is
+    // fully capped out, so only the diuresis remains → the bar can only drop.
+    const base: HydrationEvent[] = [{ type: 'water', at: ts(20), volumeMl: 1000 }];
+    const withBeer: HydrationEvent[] = [
+      ...base,
+      { type: 'alcohol', at: ts(20, 1), volumeMl: 400, abv: 5 },
+    ];
+    const before = computeState(base, ts(20, 1), P70).levelMl;
+    const after = computeState(withBeer, ts(20, 1), P70).levelMl;
+    expect(after).toBeLessThan(before); // saturated → beer is a net loss
+  });
+
+  it('the same beer with free capacity is a net gain', () => {
+    const base: HydrationEvent[] = [{ type: 'water', at: ts(8), volumeMl: 1 }];
+    const withBeer: HydrationEvent[] = [
+      ...base,
+      { type: 'alcohol', at: ts(20), volumeMl: 400, abv: 5 },
+    ];
+    const before = computeState(base, ts(20), P70).levelMl;
+    const after = computeState(withBeer, ts(20), P70).levelMl;
+    expect(after).toBeGreaterThan(before); // capacity available → beer hydrates
+  });
 });
 
 describe('weight scales daily need', () => {

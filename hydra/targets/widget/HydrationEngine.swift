@@ -269,12 +269,18 @@ func zoneOf(pct: Double, poisoned: Bool) -> Zone {
     return .red
 }
 
-func alcoholNetMl(volumeMl: Double, abv: Double) -> Double {
-    let water = volumeMl * (1 - abv / 100)
-    let diur = ethanolGrams(volumeMl: volumeMl, abv: abv)
+// Alcohol diuresis (excretion) — always applies in full, not absorption-capped.
+func alcoholDiuresisMl(volumeMl: Double, abv: Double) -> Double {
+    return ethanolGrams(volumeMl: volumeMl, abv: abv)
         * DIURESIS_ML_PER_G_ETHANOL
         * concentrationFactor(abv)
-    return water - diur
+}
+
+// Single-drink net water in isolation (uncapped). Real timeline caps the water
+// via creditedWaterMl / applyEventImpact.
+func alcoholNetMl(volumeMl: Double, abv: Double) -> Double {
+    let water = volumeMl * (1 - abv / 100)
+    return water - alcoholDiuresisMl(volumeMl: volumeMl, abv: abv)
 }
 
 private func caffeineNetMl(_ e: HydrationEvent) -> Double {
@@ -288,19 +294,30 @@ private func clamp(_ v: Double, _ lo: Double, _ hi: Double) -> Double {
     return min(hi, max(lo, v))
 }
 
-// Rolling hourly absorption cap — parallel array of credited mL per event.
+// Fluid volume competing for absorption. Alcohol counts by its water content.
+private func fluidIntakeMl(_ e: HydrationEvent) -> Double {
+    switch e.type {
+    case .water, .electrolytes: return e.volumeMl ?? 0
+    case .alcohol: return (e.volumeMl ?? 0) * (1 - (e.abv ?? 0) / 100)
+    default: return 0
+    }
+}
+
+// Rolling hourly absorption cap — parallel array of credited mL per event
+// (water, electrolytes, AND alcohol's water).
 func creditedWaterMl(_ sorted: [HydrationEvent]) -> [Double] {
     var credited = [Double](repeating: 0, count: sorted.count)
     var hist: [(at: TimeInterval, credited: Double)] = []
     for i in 0..<sorted.count {
         let e = sorted[i]
-        if e.type != .water && e.type != .electrolytes { continue }
+        let intake = fluidIntakeMl(e)
+        if intake <= 0 { continue }
         var used: Double = 0
         for h in hist where h.at > e.at - ABSORB_WINDOW_MS && h.at <= e.at {
             used += h.credited
         }
         let remaining = max(0, MAX_WATER_ABSORB_ML_PER_H - used)
-        let cred = min(e.volumeMl ?? 0, remaining)
+        let cred = min(intake, remaining)
         credited[i] = cred
         hist.append((e.at, cred))
     }
@@ -312,7 +329,6 @@ func waterAbsorbedInWindow(_ sorted: [HydrationEvent], _ at: TimeInterval) -> Do
     var used: Double = 0
     for i in 0..<sorted.count {
         let e = sorted[i]
-        if e.type != .water && e.type != .electrolytes { continue }
         if e.at > at - ABSORB_WINDOW_MS && e.at <= at { used += credited[i] }
     }
     return used
@@ -325,7 +341,8 @@ private func applyEventImpact(_ e: HydrationEvent, _ levelMl: Double, _ cap: Dou
     case .electrolytes:
         return clamp(levelMl + creditedMl * 1.1, 0, cap)
     case .alcohol:
-        return clamp(levelMl + alcoholNetMl(volumeMl: e.volumeMl ?? 0, abv: e.abv ?? 0), 0, cap)
+        // Absorbed water (capped) minus full diuresis; saturated → net can go negative.
+        return clamp(levelMl + creditedMl - alcoholDiuresisMl(volumeMl: e.volumeMl ?? 0, abv: e.abv ?? 0), 0, cap)
     case .caffeine:
         return clamp(levelMl + caffeineNetMl(e), 0, cap)
     case .sport, .profile:

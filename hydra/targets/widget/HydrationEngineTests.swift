@@ -177,6 +177,34 @@ final class HydrationEngineTests: XCTestCase {
         XCTAssertFalse(last.saturated)
     }
 
+    // Alcohol's water shares the absorption cap; saturated → a drink is net-negative.
+    func testAlcoholRespectsAbsorptionCap() {
+        let base: [HydrationEvent] = [
+            HydrationEvent(type: .water, at: ts(20), volumeMl: 1000, abv: nil,
+                           caffeineMg: nil, durationMin: nil, intensity: nil, patch: nil)
+        ]
+        let withBeer: [HydrationEvent] = base + [
+            HydrationEvent(type: .alcohol, at: ts(20, 1), volumeMl: 400, abv: 5,
+                           caffeineMg: nil, durationMin: nil, intensity: nil, patch: nil)
+        ]
+        let before = computeState(events: base, at: ts(20, 1), profile: P70).levelMl
+        let after = computeState(events: withBeer, at: ts(20, 1), profile: P70).levelMl
+        XCTAssertLessThan(after, before) // saturated hour → beer is a net loss
+
+        // With fresh capacity the same beer is a net gain.
+        let anchor: [HydrationEvent] = [
+            HydrationEvent(type: .water, at: ts(8), volumeMl: 1, abv: nil,
+                           caffeineMg: nil, durationMin: nil, intensity: nil, patch: nil)
+        ]
+        let anchorBeer: [HydrationEvent] = anchor + [
+            HydrationEvent(type: .alcohol, at: ts(20), volumeMl: 400, abv: 5,
+                           caffeineMg: nil, durationMin: nil, intensity: nil, patch: nil)
+        ]
+        let b0 = computeState(events: anchor, at: ts(20), profile: P70).levelMl
+        let b1 = computeState(events: anchorBeer, at: ts(20), profile: P70).levelMl
+        XCTAssertGreaterThan(b1, b0)
+    }
+
     // #7
     func testAmbientTemp30Multiplier() {
         var cool = P70; cool.ambientTempC = nil
