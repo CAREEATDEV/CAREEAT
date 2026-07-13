@@ -15,6 +15,15 @@
       "ios": { "resourceClass": "m-medium" },
       "android": { "buildType": "apk" }
     },
+    "preview-nowidget": {
+      "extends": "preview",
+      "env": { "HYDRA_NO_WIDGET": "1" },
+      "ios": { "resourceClass": "m-medium" }
+    },
+    "development-nowidget": {
+      "extends": "development",
+      "env": { "HYDRA_NO_WIDGET": "1" }
+    },
     "preview-android": {
       "distribution": "internal",
       "credentialsSource": "local",
