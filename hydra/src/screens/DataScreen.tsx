@@ -11,12 +11,26 @@ import { useHydration } from '../store/useHydration';
 import { C, FONTS, RADIUS } from '../theme/colors';
 import { dailyNeedMl, HydrationEvent } from '../engine/hydrationEngine';
 import {
+  consumptionRecap,
   dayDrinkStats,
   greenStreak,
   greenTimePctToday,
   isSameDay,
+  lastNDaysPoisoned,
   lastNDaysWater,
+  poisonedMsThisWeek,
+  poisonFreeStreak,
 } from '../util/stats';
+
+// "2 h 05" / "45 min" / "0" — compact poisoned-time label.
+function formatDuration(ms: number): string {
+  const totalMin = Math.round(ms / 60_000);
+  if (totalMin <= 0) return '0';
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (h === 0) return `${m} min`;
+  return `${h} h ${String(m).padStart(2, '0')}`;
+}
 
 function labelFor(e: HydrationEvent): { text: string; color: string } {
   switch (e.type) {
@@ -80,6 +94,21 @@ export function DataScreen() {
   );
   const bars = useMemo(() => lastNDaysWater(events, now, 7), [events, now]);
   const maxBar = Math.max(goal, ...bars.map((b) => b.waterMl), 1);
+
+  const poisonWeekMs = useMemo(
+    () => poisonedMsThisWeek(events, now),
+    [events, now]
+  );
+  const cleanStreak = useMemo(
+    () => poisonFreeStreak(events, now),
+    [events, now]
+  );
+  const poisonBars = useMemo(
+    () => lastNDaysPoisoned(events, now, 7),
+    [events, now]
+  );
+  const maxPoisonMs = Math.max(...poisonBars.map((b) => b.poisonedMs), 1);
+  const recap = useMemo(() => consumptionRecap(events, now, 30), [events, now]);
 
   const items = events.filter((e) => isSameDay(e.at, now)).reverse();
 
@@ -149,6 +178,81 @@ export function DataScreen() {
         <Text style={styles.chartHint}>
           Objectif {Math.round(goal)} mL/j · barre pleine = objectif atteint
         </Text>
+
+        <Text style={styles.section}>EMPOISONNEMENT</Text>
+        <View style={styles.cardRow}>
+          <StatCard
+            value={formatDuration(poisonWeekMs)}
+            label="EN VIOLET (7 JOURS)"
+            color={poisonWeekMs > 0 ? C.poison : C.segmentFull}
+          />
+          <StatCard
+            value={String(cleanStreak)}
+            label="JOURS SANS ALCOOL"
+            color={cleanStreak > 0 ? C.segmentFull : C.textDim}
+          />
+        </View>
+        <View style={styles.chart}>
+          {poisonBars.map((b, i) => {
+            const h = Math.max(2, (b.poisonedMs / maxPoisonMs) * 90);
+            const isToday = i === poisonBars.length - 1;
+            return (
+              <View key={b.dayStart} style={styles.barCol}>
+                <View style={styles.barTrack}>
+                  <View
+                    style={[
+                      styles.barFill,
+                      {
+                        height: h,
+                        backgroundColor:
+                          b.poisonedMs > 0 ? C.poison : C.segmentEmpty,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.barLabel,
+                    isToday && { color: C.text, fontFamily: FONTS.monoBold },
+                  ]}
+                >
+                  {b.label}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+        <Text style={styles.chartHint}>
+          Objectif : le moins de temps en violet possible.
+        </Text>
+
+        <Text style={styles.section}>30 DERNIERS JOURS</Text>
+        <View style={styles.cardRow}>
+          <StatCard
+            value={(recap.waterMl / 1000).toFixed(1)}
+            unit="L"
+            label="EAU BUE"
+            color={C.segmentFull}
+          />
+          <StatCard
+            value={String(recap.alcoholUnits)}
+            label="VERRES D'ALCOOL"
+            color={recap.alcoholUnits > 0 ? C.poison : C.textDim}
+          />
+        </View>
+        <View style={styles.cardRow}>
+          <StatCard
+            value={formatDuration(recap.poisonedMs)}
+            label="TEMPS EMPOISONNÉ"
+            color={recap.poisonedMs > 0 ? C.poison : C.segmentFull}
+          />
+          <StatCard
+            value={String(recap.cleanDays)}
+            unit={`/ ${recap.cleanDays + recap.poisonedDays}`}
+            label="JOURS PROPRES"
+            color={C.segmentFull}
+          />
+        </View>
 
         <Text style={styles.section}>JOURNÉE</Text>
         {items.length === 0 ? (

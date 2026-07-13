@@ -5,7 +5,9 @@
 import {
   computeState,
   DEFAULT_PROFILE,
+  ethanolGrams,
   HydrationEvent,
+  POISON_WINDOW_MS,
   UserProfile,
 } from '../engine/hydrationEngine';
 
@@ -124,4 +126,152 @@ export function greenTimePctToday(
     if (s.zone === 'green') green += 1;
   }
   return total === 0 ? 0 : Math.round((green / total) * 100);
+}
+
+// ————————— Poison time (the "less time poisoned" challenge) —————————
+
+// Total milliseconds spent poisoned within [from, to). The bar is poisoned for
+// POISON_WINDOW_MS after each alcohol event; overlapping windows (several drinks)
+// count once, not double. Exact (interval union), no engine sampling needed.
+export function poisonedMsInRange(
+  events: HydrationEvent[],
+  from: number,
+  to: number
+): number {
+  if (to <= from) return 0;
+  const windows: [number, number][] = [];
+  for (const e of events) {
+    if (e.type !== 'alcohol') continue;
+    const s = Math.max(from, e.at);
+    const en = Math.min(to, e.at + POISON_WINDOW_MS);
+    if (en > s) windows.push([s, en]);
+  }
+  if (windows.length === 0) return 0;
+  windows.sort((a, b) => a[0] - b[0]);
+  let total = 0;
+  let [curS, curE] = windows[0];
+  for (let i = 1; i < windows.length; i++) {
+    const [s, en] = windows[i];
+    if (s > curE) {
+      total += curE - curS;
+      curS = s;
+      curE = en;
+    } else if (en > curE) {
+      curE = en;
+    }
+  }
+  total += curE - curS;
+  return total;
+}
+
+// Poisoned time so far today, and over the rolling last 7 days.
+export function poisonedMsToday(events: HydrationEvent[], now: number): number {
+  return poisonedMsInRange(events, startOfDay(now), now);
+}
+
+export function poisonedMsThisWeek(
+  events: HydrationEvent[],
+  now: number,
+  days = 7
+): number {
+  const from = startOfDay(now) - (days - 1) * DAY_MS;
+  return poisonedMsInRange(events, from, now);
+}
+
+export interface DayPoison {
+  dayStart: number;
+  label: string; // single-letter weekday
+  poisonedMs: number;
+}
+
+// Poisoned ms for each of the last `count` days (today clipped to `now`).
+export function lastNDaysPoisoned(
+  events: HydrationEvent[],
+  now: number,
+  count = 7
+): DayPoison[] {
+  const todayStart = startOfDay(now);
+  const out: DayPoison[] = [];
+  for (let i = count - 1; i >= 0; i--) {
+    const dayStart = todayStart - i * DAY_MS;
+    const end = Math.min(dayStart + DAY_MS, now);
+    out.push({
+      dayStart,
+      label: WEEKDAY_LETTERS[new Date(dayStart).getDay()],
+      poisonedMs: poisonedMsInRange(events, dayStart, end),
+    });
+  }
+  return out;
+}
+
+// Consecutive days ending today with ZERO poisoned time — the "clean" streak.
+// A drink today breaks it immediately (unlike the green streak's partial today).
+// Bounded: we stop once we've walked back past the first recorded event (there
+// is no history before that, so counting phantom clean days is meaningless) and
+// hard-cap at `maxDays` so an all-clean history can never loop forever.
+export function poisonFreeStreak(
+  events: HydrationEvent[],
+  now: number,
+  maxDays = 366
+): number {
+  const todayStart = startOfDay(now);
+  const earliestDay = events.length
+    ? startOfDay(Math.min(...events.map((e) => e.at)))
+    : todayStart;
+  let streak = 0;
+  for (let i = 0; i < maxDays; i++) {
+    const dayStart = todayStart - i * DAY_MS;
+    const end = i === 0 ? now : dayStart + DAY_MS;
+    if (poisonedMsInRange(events, dayStart, end) !== 0) break;
+    streak += 1;
+    if (dayStart <= earliestDay) break; // no history before this — stop counting
+  }
+  return streak;
+}
+
+// ————————— Consumption recap (week / month roll-up) —————————
+
+export interface ConsumptionRecap {
+  waterMl: number; // water + electrolytes volume
+  alcoholUnits: number; // number of alcohol drinks
+  ethanolG: number; // total pure ethanol (grams)
+  poisonedMs: number; // total time poisoned in the range
+  poisonedDays: number; // days with any poison
+  cleanDays: number; // days with zero poison
+}
+
+// Aggregate consumption over the last `days` (rolling, ending at `now`).
+export function consumptionRecap(
+  events: HydrationEvent[],
+  now: number,
+  days = 30
+): ConsumptionRecap {
+  const from = startOfDay(now) - (days - 1) * DAY_MS;
+  let waterMl = 0;
+  let alcoholUnits = 0;
+  let ethanolG = 0;
+  for (const e of events) {
+    if (e.at < from || e.at > now) continue;
+    if (e.type === 'water' || e.type === 'electrolytes') waterMl += e.volumeMl;
+    if (e.type === 'alcohol') {
+      alcoholUnits += 1;
+      ethanolG += ethanolGrams(e.volumeMl, e.abv);
+    }
+  }
+  let poisonedDays = 0;
+  let cleanDays = 0;
+  for (let i = 0; i < days; i++) {
+    const dayStart = startOfDay(now) - i * DAY_MS;
+    const end = Math.min(dayStart + DAY_MS, now);
+    if (poisonedMsInRange(events, dayStart, end) > 0) poisonedDays += 1;
+    else cleanDays += 1;
+  }
+  return {
+    waterMl,
+    alcoholUnits,
+    ethanolG,
+    poisonedMs: poisonedMsInRange(events, from, now),
+    poisonedDays,
+    cleanDays,
+  };
 }

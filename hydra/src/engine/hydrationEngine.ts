@@ -198,7 +198,7 @@ export function concentrationFactor(abv: number): number {
 
 // ————————— Poison window model —————————
 
-const POISON_WINDOW_MS = 4 * 3600_000;
+export const POISON_WINDOW_MS = 4 * 3600_000;
 const POISON_PEAK_MS = 2 * 3600_000;
 
 // Peak extra drain at the 2h apex. Driven by ethanol grams (≤10 g → 0.3,

@@ -1,12 +1,18 @@
-import { HydrationEvent } from '../engine/hydrationEngine';
+import { HydrationEvent, POISON_WINDOW_MS } from '../engine/hydrationEngine';
 import {
+  consumptionRecap,
   dayDrinkStats,
   greenStreak,
+  lastNDaysPoisoned,
   lastNDaysWater,
+  poisonedMsInRange,
+  poisonedMsThisWeek,
+  poisonFreeStreak,
   startOfDay,
 } from './stats';
 
 const DAY_MS = 24 * 3600_000;
+const H = 3600_000;
 
 // A fixed reference "now" at midday so intraday timestamps stay in the same day.
 const NOON = startOfDay(Date.parse('2026-01-15T00:00:00')) + 12 * 3600_000;
@@ -67,5 +73,103 @@ describe('greenStreak', () => {
       { type: 'water', at: NOON - DAY_MS, volumeMl: 100 },
     ];
     expect(greenStreak(events, NOON, 2000)).toBe(0);
+  });
+});
+
+describe('poisonedMsInRange', () => {
+  it('one drink poisons for exactly the window length', () => {
+    const events: HydrationEvent[] = [
+      { type: 'alcohol', at: NOON, volumeMl: 400, abv: 5 },
+    ];
+    expect(poisonedMsInRange(events, NOON, NOON + 10 * H)).toBe(POISON_WINDOW_MS);
+  });
+
+  it('overlapping drinks are counted once (union, not sum)', () => {
+    const events: HydrationEvent[] = [
+      { type: 'alcohol', at: NOON, volumeMl: 400, abv: 5 },
+      { type: 'alcohol', at: NOON + 2 * H, volumeMl: 400, abv: 5 }, // overlaps
+    ];
+    // Union = [NOON, NOON+6h] = 6 h, not 8 h.
+    expect(poisonedMsInRange(events, NOON, NOON + 10 * H)).toBe(6 * H);
+  });
+
+  it('disjoint drinks add up', () => {
+    const events: HydrationEvent[] = [
+      { type: 'alcohol', at: NOON, volumeMl: 400, abv: 5 },
+      { type: 'alcohol', at: NOON + 6 * H, volumeMl: 400, abv: 5 }, // no overlap
+    ];
+    expect(poisonedMsInRange(events, NOON, NOON + 20 * H)).toBe(2 * POISON_WINDOW_MS);
+  });
+
+  it('clips to the query range', () => {
+    const events: HydrationEvent[] = [
+      { type: 'alcohol', at: NOON, volumeMl: 400, abv: 5 },
+    ];
+    // Only look at the first hour of the 4 h window.
+    expect(poisonedMsInRange(events, NOON, NOON + H)).toBe(H);
+  });
+
+  it('ignores non-alcohol events', () => {
+    const events: HydrationEvent[] = [
+      { type: 'water', at: NOON, volumeMl: 500 },
+    ];
+    expect(poisonedMsInRange(events, NOON - H, NOON + H)).toBe(0);
+  });
+});
+
+describe('poisonFreeStreak & weekly poison', () => {
+  it('grows while days stay clean and breaks on a drink today', () => {
+    // Clean history → streak counts today + past empty days (capped by loop at
+    // the first poisoned day; with no alcohol it just keeps counting, so check
+    // a bounded window instead).
+    const clean: HydrationEvent[] = [
+      { type: 'water', at: NOON - DAY_MS, volumeMl: 500 },
+    ];
+    expect(poisonFreeStreak(clean, NOON)).toBeGreaterThanOrEqual(1);
+
+    const drankToday: HydrationEvent[] = [
+      { type: 'alcohol', at: NOON - H, volumeMl: 400, abv: 5 },
+    ];
+    expect(poisonFreeStreak(drankToday, NOON)).toBe(0);
+  });
+
+  it('poisonedMsThisWeek sums the rolling 7-day window', () => {
+    const events: HydrationEvent[] = [
+      { type: 'alcohol', at: NOON, volumeMl: 400, abv: 5 }, // today, in-window
+      { type: 'alcohol', at: NOON - 3 * DAY_MS, volumeMl: 40, abv: 40 }, // 3d ago
+      { type: 'alcohol', at: NOON - 30 * DAY_MS, volumeMl: 400, abv: 5 }, // out
+    ];
+    // today's window is clipped to NOON (4h would run past "now"), so ~0 of it
+    // counts; 3-days-ago contributes a full 4 h.
+    const wk = poisonedMsThisWeek(events, NOON);
+    expect(wk).toBeGreaterThanOrEqual(POISON_WINDOW_MS);
+    expect(wk).toBeLessThan(2 * POISON_WINDOW_MS);
+  });
+
+  it('lastNDaysPoisoned returns 7 buckets newest last', () => {
+    const events: HydrationEvent[] = [
+      { type: 'alcohol', at: NOON - 2 * DAY_MS, volumeMl: 400, abv: 5 },
+    ];
+    const bars = lastNDaysPoisoned(events, NOON, 7);
+    expect(bars).toHaveLength(7);
+    expect(bars[4].poisonedMs).toBe(POISON_WINDOW_MS); // 2 days ago
+    expect(bars[6].poisonedMs).toBe(0); // today
+  });
+});
+
+describe('consumptionRecap', () => {
+  it('rolls up water, alcohol units, ethanol and clean days', () => {
+    const events: HydrationEvent[] = [
+      { type: 'water', at: NOON, volumeMl: 1000 },
+      { type: 'electrolytes', at: NOON - H, volumeMl: 500 },
+      { type: 'alcohol', at: NOON - 5 * DAY_MS, volumeMl: 400, abv: 5 },
+      { type: 'alcohol', at: NOON - 5 * DAY_MS + H, volumeMl: 40, abv: 40 },
+    ];
+    const r = consumptionRecap(events, NOON, 30);
+    expect(r.waterMl).toBe(1500);
+    expect(r.alcoholUnits).toBe(2);
+    expect(r.ethanolG).toBeGreaterThan(20); // ~15.8 + ~12.6 g
+    expect(r.poisonedDays).toBe(1); // both drinks on the same day
+    expect(r.cleanDays).toBe(29);
   });
 });
