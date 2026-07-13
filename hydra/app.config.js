@@ -1,17 +1,23 @@
 // Dynamic Expo config.
 //
-// By DEFAULT (no HYDRA_TEAM_ID env var) we EXCLUDE the native WidgetKit target
-// and the App Group entitlement. This lets the app build & run in the iOS
-// Simulator (or Expo Go) with a FREE Apple account and no Team ID — ideal for
-// recording promo videos of the app itself.
+// The WidgetKit target + App Group are INCLUDED by default (paid Apple account
+// QN65J7X695). Requirements before the first build:
+//   • accept the updated Apple Developer Program license
+//   • register the App Group  group.com.chipli.hydra  on developer.apple.com
 //
-// To include the lock-screen / home-screen widget (requires a paid Apple
-// Developer account + an App Group registered on your account), run with:
-//   HYDRA_TEAM_ID=XXXXXXXXXX npx expo prebuild --clean --platform ios
+// Build with the widget:
+//   npx expo prebuild --clean --platform ios && npx expo run:ios
 //
-// The static values live in app.json; this file only toggles the widget.
+// Quick simulator run WITHOUT the widget (no App Group needed):
+//   HYDRA_NO_WIDGET=1 npx expo prebuild --clean --platform ios && npx expo run:ios
+//
+// Override the team id if needed with  HYDRA_TEAM_ID=XXXXXXXXXX.
+const DEFAULT_TEAM_ID = 'QN65J7X695';
+const APP_GROUP = 'group.com.chipli.hydra';
+
 module.exports = ({ config }) => {
-  const teamId = process.env.HYDRA_TEAM_ID;
+  const teamId = process.env.HYDRA_TEAM_ID || DEFAULT_TEAM_ID;
+  const withWidget = !process.env.HYDRA_NO_WIDGET;
 
   const plugins = (config.plugins || []).filter((p) => {
     const name = Array.isArray(p) ? p[0] : p;
@@ -20,13 +26,12 @@ module.exports = ({ config }) => {
 
   const ios = { ...(config.ios || {}) };
 
-  if (teamId) {
+  if (withWidget) {
     plugins.push(['@bacons/apple-targets', { appleTeamId: teamId }]);
     ios.entitlements = {
-      'com.apple.security.application-groups': ['group.com.chipli.hydra'],
+      'com.apple.security.application-groups': [APP_GROUP],
     };
   } else {
-    // Free simulator build: no widget, no App Group entitlement.
     delete ios.entitlements;
   }
 

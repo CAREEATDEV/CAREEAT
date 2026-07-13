@@ -1,14 +1,21 @@
 # HYDRA — lancer l'app dans le simulateur iOS (pour filmer)
 
-But : voir la **vraie app** tourner sur un iPhone simulé, gratuitement, pour
-enregistrer des vidéos promo. Aucun compte Apple payant nécessaire (le widget
-lock screen est désactivé par défaut — il viendra plus tard, il exige les 99 $).
+But : voir la **vraie app** (widget compris) tourner sur un iPhone simulé ou
+réel, pour enregistrer des vidéos promo.
+
+Team ID déjà câblé : **QN65J7X695**. Le widget est **activé par défaut**.
 
 ## Prérequis (sur ton Mac)
 1. **Xcode** (App Store, gratuit) → l'ouvrir une fois pour installer les
    composants, puis : Xcode ▸ Settings ▸ Platforms ▸ installer un runtime iOS.
 2. **Node 18+** (https://nodejs.org).
-3. C'est tout. (Pas de compte développeur, pas de Team ID.)
+3. Côté Apple, une seule fois :
+   - **Accepter** le contrat Apple Developer mis à jour (developer.apple.com).
+   - **Enregistrer l'App Group** `group.com.chipli.hydra`
+     (Identifiers ▸ App Groups ▸ +).
+
+> Astuce : pour un test rapide **sans** widget (aucun App Group requis), préfixe
+> les commandes par `HYDRA_NO_WIDGET=1`.
 
 ## Option A — la plus rapide : Expo Go (aucun build)
 ```bash
@@ -49,11 +56,13 @@ Dans **RÉGLAGES**, change le poids → le besoin quotidien et le drain changent
 direct. Logge une **bière** → la barre devient violette (poison). Spamme **EAU**
 → tu déclenches le garde-fou (le corps sature). Ça fait de bons plans vidéo.
 
-## Plus tard : activer le widget (iOS, compte payant)
-```bash
-# App Group "group.com.chipli.hydra" créé sur developer.apple.com au préalable
-HYDRA_TEAM_ID=TONTEAMID npx expo prebuild --clean --platform ios
-npx expo run:ios
-```
-`app.config.js` n'ajoute le target widget + l'entitlement App Group que si
-`HYDRA_TEAM_ID` est défini.
+## Voir le widget
+Une fois l'app lancée (build avec widget) :
+1. Ouvre l'app une fois (elle écrit son état dans l'App Group).
+2. Écran verrouillé → long-press → **Personnaliser** → zone sous l'heure →
+   choisis **HYDRA** (`accessoryRectangular`).
+3. Ou écran d'accueil → long-press → **+** → **HYDRA** (`systemSmall`).
+
+Si Xcode râle sur la signature : ouvre `ios/hydra.xcworkspace`, pour **chaque**
+target (app **et** HydraWidget) onglet *Signing & Capabilities* → Team =
+`QN65J7X695`, App Group = `group.com.chipli.hydra`, puis relance.
