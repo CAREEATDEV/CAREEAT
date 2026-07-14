@@ -8,8 +8,11 @@ import type {
 } from 'react-native-purchases';
 
 // The entitlement identifier configured in RevenueCat. The whole app is gated
-// behind it (paid model, 7-day trial then €3.99/mo).
-export const ENTITLEMENT_ID = 'pro';
+// behind it (paid model, 7-day trial then €3.99/mo). RevenueCat entitlement
+// identifiers are immutable after creation — this must match the "Identifier"
+// field shown on the entitlement's page exactly (case + spacing), NOT the
+// (editable) Display Name.
+export const ENTITLEMENT_ID = 'HYDRA Pro';
 
 // react-native-purchases is a NATIVE module: absent in Expo Go / web. Load it
 // defensively so those environments (and any build before RevenueCat is set up)
