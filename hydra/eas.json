@@ -12,7 +12,7 @@
     },
     "preview": {
       "distribution": "internal",
-      "ios": { "resourceClass": "m-medium" },
+      "ios": { "resourceClass": "m-medium", "image": "latest" },
       "android": { "buildType": "apk" }
     },
     "preview-nowidget": {
