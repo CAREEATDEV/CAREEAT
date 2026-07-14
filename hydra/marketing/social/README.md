@@ -9,7 +9,21 @@ Rendu 100% cohérent à chaque fois : **même template HTML**, mêmes couleurs e
 polices exactes du projet (`src/theme/colors.ts`, `assets/fonts/`) — pas un
 générateur d'image IA qui réinterprète différemment à chaque fois.
 
-## Le prompt générique à réutiliser
+## 🎛️ Le studio (le plus simple — aucune ligne de commande)
+
+**`post-studio.html`** — un petit logiciel autonome. **Double-clique dessus**,
+il s'ouvre dans ton navigateur (100 % hors ligne, la police HYDRA est intégrée
+dedans). Tu tapes ton accroche, tu choisis la couleur d'accent, le format
+(Instagram 4:5 / TikTok 9:16) et le nombre de segments, tu vois l'aperçu en
+direct, puis **« Télécharger l'image PNG »**. Rendu strictement identique à
+chaque fois (c'est le même code qui dessine, pas une IA qui réinterprète).
+
+- Mets les mots à colorer entre `*astérisques*` dans l'accroche.
+- Il y a aussi un bloc-notes « Légende » pour garder le texte du post à portée.
+- Pour écrire la légende scientifique (la partie créative/sourcée), passe-moi
+  le thème ici — le studio gère le visuel, moi j'écris le texte.
+
+## Le prompt générique à réutiliser (si tu préfères passer par moi)
 
 Colle ceci (dans Claude Code, ce projet) en remplaçant juste `[THÈME]` :
 
