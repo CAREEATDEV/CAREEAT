@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face{font-family:'Chakra';src:url('__FONT_DISPLAY__') format('truetype');font-weight:700;}
+  @font-face{font-family:'ChakraSemi';src:url('__FONT_LABEL__') format('truetype');font-weight:600;}
+  @font-face{font-family:'Plex';src:url('__FONT_MONO__') format('truetype');font-weight:400;}
+  @font-face{font-family:'PlexBold';src:url('__FONT_MONOBOLD__') format('truetype');font-weight:700;}
+
+  :root{
+    --bg:#000000; --bgSoft:#101216;
+    --green:#3EE07A; --greenDeep:#2ECC6A;
+    --amber:#FFB020; --red:#FF3B4A; --poison:#B44CFF;
+    --empty:#1C2026; --text:#EDEFF2; --dim:#7C828C;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{width:__W__px;height:__H__px;background:var(--bg);overflow:hidden;}
+  body{
+    font-family:'Plex',monospace;
+    display:flex;flex-direction:column;
+    padding:__PAD_V__px __PAD_H__px;
+  }
+
+  /* recurring brand device: a segmented life-bar strip, echoes the widget */
+  .segbar{display:flex;gap:10px;margin-top:56px;}
+  .seg{flex:1;height:14px;border-radius:4px;background:var(--empty);}
+  .seg.on{background:var(--accent, var(--green));}
+
+  .eyebrow{
+    font-family:'ChakraSemi';color:var(--dim);font-size:26px;
+    letter-spacing:6px;text-transform:uppercase;margin-top:44px;
+  }
+  .eyebrow b{color:var(--accent, var(--green));}
+
+  .hook{
+    font-family:'Chakra';color:var(--text);
+    font-size:__HOOK_SIZE__px;line-height:1.18;letter-spacing:0.5px;
+    margin:44px 0 0;
+    text-wrap:balance;
+  }
+  .hook .accent{color:var(--accent, var(--green));}
+
+  /* single flexible gap: pushes cta+brand to the bottom, hook stays near top */
+  .cta{
+    display:flex;align-items:center;gap:16px;
+    border-top:2px solid var(--empty);
+    padding-top:36px;margin-top:auto;
+  }
+  .cta .arrow{
+    font-family:'PlexBold';color:var(--accent, var(--green));font-size:34px;
+  }
+  .cta .ctatxt{
+    font-family:'ChakraSemi';color:var(--text);font-size:28px;
+    letter-spacing:2px;text-transform:uppercase;
+  }
+
+  .brand{
+    font-family:'Chakra';color:var(--dim);font-size:22px;
+    letter-spacing:8px;margin-top:28px;
+  }
+  .brand b{color:var(--text);}
+</style>
+</head>
+<body>
+  <div class="segbar" id="segbar"></div>
+
+  <div class="eyebrow">HYDRA <b>·</b> SCIENCE</div>
+
+  <div class="hook">__HOOK_HTML__</div>
+
+  <div class="cta">
+    <div class="arrow">&darr;</div>
+    <div class="ctatxt">__CTA__</div>
+  </div>
+
+  <div class="brand">HYDR<b>A</b></div>
+
+<script>
+  // 8-segment life bar (n filled), accent colour set per post mood.
+  const bar = document.getElementById('segbar');
+  const segOn = __SEG_ON__;
+  const accent = '__ACCENT__';
+  document.documentElement.style.setProperty('--accent', accent);
+  for (let i = 0; i < 8; i++) {
+    const s = document.createElement('div');
+    s.className = 'seg' + (i < segOn ? ' on' : '');
+    bar.appendChild(s);
+  }
+</script>
+</body>
+</html>
