@@ -47,14 +47,36 @@ module.exports = ({ config }) => {
   // Android; the button is only shown on iOS when the module is available).
   plugins.push('expo-apple-authentication');
 
+  const extra = {
+    ...(config.extra || {}),
+    supabaseUrl: SUPABASE_URL,
+    supabaseAnonKey: SUPABASE_ANON_KEY,
+  };
+
+  // EAS reads extra.eas.build.experimental.ios.appExtensions to provision the
+  // widget target. When HYDRA_NO_WIDGET=1 the @bacons/apple-targets plugin is
+  // skipped, so HydraWidget never lands in project.pbxproj — strip the extension
+  // entry or Configure Xcode project fails with "Could not find target
+  // 'HydraWidget'".
+  if (!withWidget && extra.eas?.build?.experimental?.ios) {
+    const { appExtensions: _drop, ...iosExperimental } =
+      extra.eas.build.experimental.ios;
+    extra.eas = {
+      ...extra.eas,
+      build: {
+        ...extra.eas.build,
+        experimental: {
+          ...extra.eas.build.experimental,
+          ios: iosExperimental,
+        },
+      },
+    };
+  }
+
   return {
     ...config,
     plugins,
     ios,
-    extra: {
-      ...(config.extra || {}),
-      supabaseUrl: SUPABASE_URL,
-      supabaseAnonKey: SUPABASE_ANON_KEY,
-    },
+    extra,
   };
 };
