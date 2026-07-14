@@ -74,6 +74,23 @@
     border-radius:8px;padding:8px 12px;font-family:'Chakra';font-size:11px;letter-spacing:2px;
     cursor:pointer;margin-top:8px;text-transform:uppercase;}
 
+  /* ---- AI card ---- */
+  .aicard{background:#0B0D11;border:1px solid var(--line);border-radius:14px;
+    padding:16px 15px;display:flex;flex-direction:column;}
+  .ailabel{font-size:12px;letter-spacing:3px;color:var(--green);
+    text-transform:uppercase;margin-bottom:14px;}
+  .aicard label{margin-top:14px;}
+  .aicard label:first-of-type{margin-top:0;}
+  .gen{margin-top:16px;background:var(--green);color:#000;border:0;border-radius:12px;
+    padding:15px;font-family:'Chakra';font-size:14px;letter-spacing:2px;cursor:pointer;
+    text-transform:uppercase;}
+  .gen:active{transform:translateY(1px);}
+  .gen:disabled{opacity:.5;cursor:progress;}
+  .aistatus{font-size:11px;color:var(--dim);margin-top:11px;line-height:1.45;min-height:15px;}
+  .aistatus.err{color:var(--red);}
+  .aistatus.ok{color:var(--green);}
+  .divider{height:1px;background:var(--line);margin:4px 0 2px;}
+
   /* ---- stage ---- */
   .stage{display:flex;align-items:center;justify-content:center;padding:32px;overflow:auto;}
   #preview{
@@ -85,6 +102,26 @@
 <body>
   <div class="panel">
     <div class="brandhead">HYDR<b>A</b><span>STUDIO DE POSTS</span></div>
+
+    <div class="aicard">
+      <div class="ailabel">✦ Génération auto (Claude)</div>
+
+      <label>Clé API Anthropic</label>
+      <input type="password" id="apikey" placeholder="sk-ant-…" autocomplete="off" spellcheck="false">
+      <div class="hint">Stockée <b>uniquement dans ce navigateur</b> (localStorage), envoyée
+        seulement à Anthropic. Jamais publiée sur GitHub. Clé sur
+        <code>console.anthropic.com</code>.</div>
+
+      <label>Titre / sujet du post</label>
+      <textarea id="topic" placeholder="Ex. : Le mythe des 8 verres d'eau par jour"></textarea>
+      <div class="hint">Tape juste le thème. Claude fait la recherche scientifique, trie les
+        sources, puis écrit l'accroche, la couleur, l'appel à l'action et la légende complète.</div>
+
+      <button class="gen" id="generate">✦ Générer avec l'IA</button>
+      <div class="aistatus" id="aistatus"></div>
+    </div>
+
+    <div class="divider"></div>
 
     <div>
       <label>Accroche (texte sur l'image)</label>
@@ -131,7 +168,10 @@
     <div class="capbox">
       <label>Légende (bloc-notes — à coller sous le post)</label>
       <textarea id="caption" placeholder="Écris ou colle ici la légende scientifique du post…"></textarea>
-      <button class="copybtn" id="copycap">Copier la légende</button>
+      <div class="row">
+        <button class="copybtn" id="copycap">Copier la légende</button>
+        <button class="copybtn" id="dlcap">Télécharger .txt</button>
+      </div>
     </div>
   </div>
 
@@ -284,6 +324,135 @@
   });
   document.getElementById('copycap').addEventListener('click', () => {
     navigator.clipboard.writeText(document.getElementById('caption').value || '');
+  });
+  document.getElementById('dlcap').addEventListener('click', () => {
+    const txt = document.getElementById('caption').value || '';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([txt], { type:'text/plain' }));
+    a.download = `hydra-legende-${state.format}.txt`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+
+  // ---- IA : génération via l'API Claude (Anthropic) ----
+  // Le fichier reste 100 % autonome : l'appel part directement du navigateur vers
+  // api.anthropic.com. La clé n'est JAMAIS écrite dans le fichier ni committée —
+  // elle vit seulement dans le localStorage de ce navigateur.
+  const KEY_LS   = 'hydra.anthropic.key';
+  const apikeyEl = document.getElementById('apikey');
+  const topicEl  = document.getElementById('topic');
+  const genBtn   = document.getElementById('generate');
+  const statusEl = document.getElementById('aistatus');
+
+  apikeyEl.value = localStorage.getItem(KEY_LS) || '';
+  apikeyEl.addEventListener('change', () =>
+    localStorage.setItem(KEY_LS, apikeyEl.value.trim()));
+
+  function setStatus(msg, cls){
+    statusEl.textContent = msg;
+    statusEl.className = 'aistatus' + (cls ? ' ' + cls : '');
+  }
+
+  // Applique une couleur d'accent par programme (met aussi à jour les pastilles).
+  function setAccent(c){
+    if(!ACCENTS[c]) return;
+    state.accent = c;
+    document.querySelectorAll('.sw').forEach(s =>
+      s.classList.toggle('on', s.dataset.c === c));
+  }
+
+  // Le prompt structuré : recherche scientifique → tri → accroche + légende
+  // optimisée pour la rétention, dans le ton HYDRA, avec CTA vers la landing.
+  const SYSTEM_PROMPT = `Tu es le copywriter scientifique de HYDRA, une app d'hydratation au ton BRUTAL, MINIMALISTE, DIRECT — jamais "wellness", jamais d'émojis dégoulinants, aucune émotion cucul. Marque vidéoludique (barre de vie qui se vide, l'alcool est un "poison").
+
+MISSION : à partir d'un simple thème, tu produis un post Instagram/TikTok complet.
+
+MÉTHODE :
+1. Utilise l'outil web_search pour VÉRIFIER les faits et chiffres (mécanismes physiologiques, études, indices comme le Beverage Hydration Index, échelle d'Armstrong, etc.). Ne cite jamais une statistique précise sans l'avoir vérifiée. Si un chiffre exact reste incertain, reste qualitatif plutôt que d'inventer.
+2. Trie : garde uniquement l'info solide, utile, surprenante.
+
+MÉCANIQUE DU POST (rétention) :
+- L'IMAGE ne pose qu'une QUESTION OUVERTE ou une INTRIGUE (la "mèche") — jamais la réponse. But : donner envie de lire la légende.
+- La LÉGENDE donne l'explication scientifique complète et détaillée, structurée en courts paragraphes percutants, pour maximiser le temps de lecture (l'algorithme pousse alors le post).
+
+TU RENDS UNIQUEMENT un objet JSON valide (aucun texte autour, aucune balise markdown), avec EXACTEMENT ces clés :
+{
+  "hook":  "l'accroche courte pour l'image (8 à 16 mots, français). Entoure LE mot/chiffre choc d'astérisques *comme ça* pour qu'il soit coloré. Une question ou une intrigue, PAS la réponse.",
+  "accent":"une seule valeur parmi: green, red, amber, poison. green=conseil/bonne nouvelle · red=mythe à casser/chiffre choc/alerte · amber=nuance/ça dépend · poison=tout sujet lié à l'alcool.",
+  "cta":   "phrase COURTE en MAJUSCULES pour le bas de l'image, qui renvoie vers la légende (ex: LA RÉPONSE EN LÉGENDE, LE VRAI CHIFFRE EN LÉGENDE).",
+  "caption":"la légende complète en français (150 à 280 mots). Structure : (1) relance le hook et donne la réponse, (2) explique le mécanisme scientifique en 2-4 courts paragraphes concrets et sourcés (nomme l'étude/indice quand tu en as un), (3) une phrase de synthèse actionnable. Termine IMPÉRATIVEMENT par un appel à l'action vers la landing : accès en avant-première à HYDRA sur https://hydra-landing-sooty.vercel.app . Ajoute 4 à 6 hashtags pertinents en dernière ligne. Ton HYDRA : cash, précis, zéro remplissage."
+}`;
+
+  function extractJSON(text){
+    const s = text.indexOf('{');
+    const e = text.lastIndexOf('}');
+    if(s === -1 || e === -1 || e < s) throw new Error('Réponse sans JSON exploitable.');
+    return JSON.parse(text.slice(s, e + 1));
+  }
+
+  async function callClaude(topic, key){
+    const messages = [{ role:'user', content:`Thème du post : ${topic}` }];
+    // Boucle serveur de web_search : si stop_reason === "pause_turn", on renvoie
+    // la réponse partielle pour laisser Claude continuer ses recherches.
+    for(let i = 0; i < 6; i++){
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST',
+        headers:{
+          'content-type':'application/json',
+          'x-api-key': key,
+          'anthropic-version':'2023-06-01',
+          'anthropic-dangerous-direct-browser-access':'true',
+        },
+        body: JSON.stringify({
+          model:'claude-opus-4-8',
+          max_tokens:3000,
+          tools:[{ type:'web_search_20260209', name:'web_search' }],
+          system: SYSTEM_PROMPT,
+          messages,
+        }),
+      });
+      if(!resp.ok){
+        let detail = '';
+        try { detail = (await resp.json())?.error?.message || ''; } catch(_){}
+        throw new Error(`API ${resp.status}${detail ? ' — ' + detail : ''}`);
+      }
+      const data = await resp.json();
+      if(data.stop_reason === 'pause_turn'){
+        messages.push({ role:'assistant', content:data.content });
+        continue;
+      }
+      return (data.content || [])
+        .filter(b => b.type === 'text')
+        .map(b => b.text)
+        .join('\n')
+        .trim();
+    }
+    throw new Error('Recherche trop longue — réessaie.');
+  }
+
+  genBtn.addEventListener('click', async () => {
+    const key   = apikeyEl.value.trim();
+    const topic = topicEl.value.trim();
+    if(!key){   setStatus('Colle d\'abord ta clé API Anthropic.', 'err'); return; }
+    if(!topic){ setStatus('Écris un titre / sujet de post.', 'err'); return; }
+    localStorage.setItem(KEY_LS, key);
+
+    genBtn.disabled = true;
+    setStatus('Recherche scientifique + rédaction en cours… (30-60 s)');
+    try {
+      const raw = await callClaude(topic, key);
+      const out = extractJSON(raw);
+      if(out.hook)    document.getElementById('hook').value = out.hook;
+      if(out.cta)     document.getElementById('cta').value  = String(out.cta).toUpperCase();
+      if(out.caption) document.getElementById('caption').value = out.caption;
+      if(out.accent)  setAccent(String(out.accent).toLowerCase());
+      draw();
+      setStatus('✓ Généré. Vérifie les chiffres, ajuste si besoin, puis télécharge.', 'ok');
+    } catch(err){
+      setStatus('Erreur : ' + (err.message || err), 'err');
+    } finally {
+      genBtn.disabled = false;
+    }
   });
 
   // Wait for the embedded font before the first draw so text isn't measured

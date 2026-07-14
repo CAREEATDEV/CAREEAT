@@ -19,9 +19,34 @@ direct, puis **« Télécharger l'image PNG »**. Rendu strictement identique à
 chaque fois (c'est le même code qui dessine, pas une IA qui réinterprète).
 
 - Mets les mots à colorer entre `*astérisques*` dans l'accroche.
-- Il y a aussi un bloc-notes « Légende » pour garder le texte du post à portée.
-- Pour écrire la légende scientifique (la partie créative/sourcée), passe-moi
-  le thème ici — le studio gère le visuel, moi j'écris le texte.
+- Il y a aussi un bloc-notes « Légende » pour garder le texte du post à portée
+  (bouton **Copier** ou **Télécharger .txt**).
+
+### ✦ Génération auto (API Claude) — juste à partir du titre
+
+En haut du studio il y a un bloc **« Génération auto (Claude) »**. Tu colles
+**ta clé API Anthropic** (récupérée sur `console.anthropic.com`), tu tapes
+**juste le thème du post**, et **« Générer avec l'IA »** :
+
+1. lance une **recherche scientifique** (outil web search) et trie les sources,
+2. écrit l'**accroche** (question/intrigue, mot choc déjà en couleur),
+3. choisit la **couleur d'accent** selon l'humeur du sujet,
+4. écrit l'**appel à l'action** de l'image,
+5. rédige la **légende complète** optimisée rétention, finissant par un CTA vers
+   la landing (`hydra-landing-sooty.vercel.app`).
+
+Tous les champs se remplissent tout seuls et l'aperçu se redessine. Il ne reste
+qu'à **vérifier les chiffres**, ajuster, **télécharger l'image** et **copier la
+légende**.
+
+- La clé est stockée **uniquement dans ton navigateur** (localStorage). Elle
+  n'est **jamais** écrite dans le fichier ni poussée sur GitHub — elle part
+  seulement vers Anthropic au moment de l'appel.
+- Modèle utilisé : `claude-opus-4-8` avec l'outil de recherche web.
+- Le studio reste un **fichier HTML autonome** (aucun serveur, aucune install).
+
+Si tu préfères passer par moi pour écrire la légende (sans clé API), le prompt
+générique ci-dessous marche toujours.
 
 ## Le prompt générique à réutiliser (si tu préfères passer par moi)
 
