@@ -25,6 +25,19 @@ class HydraAppGroup: NSObject {
         resolve(nil)
     }
 
+    // Read the shared snapshot back so the app can merge in events that the
+    // widget's App Intents appended while the app was backgrounded/closed.
+    @objc
+    func readSnapshot(_ appGroup: String,
+                      resolver resolve: @escaping RCTPromiseResolveBlock,
+                      rejecter reject: @escaping RCTPromiseRejectBlock) {
+        guard let defaults = UserDefaults(suiteName: appGroup) else {
+            reject("no_group", "App Group unavailable: \(appGroup)", nil)
+            return
+        }
+        resolve(defaults.string(forKey: "hydraSnapshot"))
+    }
+
     @objc
     func reloadWidget(_ resolve: @escaping RCTPromiseResolveBlock,
                       rejecter reject: @escaping RCTPromiseRejectBlock) {

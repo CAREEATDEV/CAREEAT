@@ -5,7 +5,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
-import { View, Text } from 'react-native';
+import { AppState, View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { DataScreen } from './src/screens/DataScreen';
@@ -76,6 +76,20 @@ export default function App() {
     setStoreHydrated(useHydration.persist.hasHydrated());
     return unsub;
   }, []);
+
+  // Merge any events the iOS widget logged (App Intents) whenever the app comes
+  // back to the foreground. Gated on hydration so the first pull runs after the
+  // persisted state is loaded (and after the rehydrate-time pull).
+  useEffect(() => {
+    if (!storeHydrated) return;
+    const pull = () =>
+      useHydration.getState().pullFromWidget().catch(() => {});
+    pull();
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') pull();
+    });
+    return () => sub.remove();
+  }, [storeHydrated]);
 
   // Once signed in, bring up the subscription (RevenueCat) for that account.
   useEffect(() => {

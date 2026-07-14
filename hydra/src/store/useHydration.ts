@@ -16,6 +16,7 @@ export type SportLogResult =
   | { ok: true }
   | { ok: false; reason: 'session_active'; remainingSec: number };
 import {
+  readSharedSnapshot,
   reloadWidgetTimelines,
   writeSharedSnapshot,
 } from '../native/appGroupBridge';
@@ -38,6 +39,7 @@ interface HydraState {
     profilePatch: Partial<UserProfile>,
     widgetPatch: Partial<WidgetSettings>
   ) => Promise<void>;
+  restartOnboarding: () => void;
   logPreset: (key: string) => Promise<LogResult>;
   logWater: (volumeMl: number) => Promise<LogResult>;
   logCustomDrink: (kind: 'water' | 'electrolytes' | 'alcohol' | 'caffeine', args: { volumeMl: number; abv?: number; caffeineMg?: number }) => Promise<void>;
@@ -47,6 +49,10 @@ interface HydraState {
   updateProfile: (patch: Partial<UserProfile>) => Promise<void>;
   updateWidget: (patch: Partial<WidgetSettings>) => Promise<void>;
   refreshWidget: () => Promise<void>;
+  // Merge events the iOS widget's buttons appended into the shared App Group
+  // snapshot (App Intents run without launching the app). Call on foreground
+  // and right after rehydration, BEFORE the store overwrites the snapshot.
+  pullFromWidget: () => Promise<void>;
   _sync: () => Promise<void>;
 
   // ── Cloud sync (Supabase) ──────────────────────────────────────────────
@@ -91,6 +97,31 @@ export const useHydration = create<HydraState>()(
           events: [...get().events, evt],
           onboarded: true,
         });
+        await get()._sync();
+      },
+
+      // Re-open the guided questionnaire. Only flips the flag locally; the next
+      // completeOnboarding() re-syncs. We don't push onboarded=false to the cloud
+      // here so a background pull can't kick the user out mid-questionnaire.
+      restartOnboarding() {
+        set({ onboarded: false });
+      },
+
+      // Pull widget-logged events (iOS App Intents) out of the shared snapshot
+      // and merge any we don't already have. Then _sync() writes the merged
+      // state back so the widget and the cloud stay in step.
+      async pullFromWidget() {
+        const snap = await readSharedSnapshot();
+        if (!snap || !Array.isArray(snap.events)) return;
+        const have = new Set(get().events.map(eventKey));
+        const deleted = new Set(get().deletedKeys);
+        const add = snap.events.filter((e) => {
+          const k = eventKey(e);
+          return !have.has(k) && !deleted.has(k);
+        });
+        if (add.length === 0) return;
+        const next = [...get().events, ...add].sort((a, b) => a.at - b.at);
+        set({ events: next });
         await get()._sync();
       },
 
@@ -265,8 +296,17 @@ export const useHydration = create<HydraState>()(
         cloudCursor: s.cloudCursor,
       }),
       onRehydrateStorage: () => (state) => {
-        state?._sync().catch(() => {});
-        if (state) state.hydrated = true;
+        if (!state) return;
+        state.hydrated = true;
+        // Read widget-logged events out of the App Group FIRST (pullFromWidget),
+        // then push the merged snapshot back. Doing _sync() before the pull would
+        // overwrite the snapshot and drop events the widget added while closed.
+        state
+          .pullFromWidget()
+          .catch(() => {})
+          .finally(() => {
+            state._sync().catch(() => {});
+          });
       },
     }
   )

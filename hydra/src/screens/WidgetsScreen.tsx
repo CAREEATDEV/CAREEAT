@@ -104,12 +104,49 @@ export function WidgetsScreen() {
     updateProfile,
     updateWidget,
     refreshWidget,
+    restartOnboarding,
   } = useHydration();
 
   const { user, signOut, deleteAccount } = useAuth();
   const [mode, setMode] = useState<PreviewMode>('live');
   const [guide, setGuide] = useState<GuideTarget | null>(null);
   const [notif, setNotif] = useState(true);
+
+  // ── Contenant eau : préréglages + volume personnalisé ──────────────────────
+  const WATER_MIN = 50;
+  const WATER_MAX = 2000;
+  const isWaterPreset = WATER_CONTAINERS.some((c) => c.ml === widget.defaultWaterMl);
+  const [customWaterMode, setCustomWaterMode] = useState(!isWaterPreset);
+  const [customWaterMl, setCustomWaterMl] = useState(String(widget.defaultWaterMl));
+
+  const selectWaterPreset = (ml: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setCustomWaterMode(false);
+    updateWidget({ defaultWaterMl: ml });
+  };
+  const selectCustomWater = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setCustomWaterMode(true);
+    const n = Number(customWaterMl);
+    if (n >= WATER_MIN && n <= WATER_MAX) updateWidget({ defaultWaterMl: n });
+  };
+  const onCustomWaterChange = (txt: string) => {
+    const digits = txt.replace(/[^0-9]/g, '');
+    setCustomWaterMl(digits);
+    const n = Number(digits);
+    if (n >= WATER_MIN && n <= WATER_MAX) updateWidget({ defaultWaterMl: n });
+  };
+
+  const confirmRestartOnboarding = () => {
+    Alert.alert(
+      'Refaire le questionnaire',
+      'Tu vas repasser par la configuration guidée (poids, sexe, sommeil, environnement, contenant). Tes données actuelles restent enregistrées.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Continuer', onPress: () => restartOnboarding() },
+      ]
+    );
+  };
 
   const confirmDelete = () => {
     Alert.alert(
@@ -270,12 +307,35 @@ export function WidgetsScreen() {
           {WATER_CONTAINERS.map((c) => (
             <Chip
               key={c.ml}
-              label={`${c.label} ${c.ml}`}
-              on={widget.defaultWaterMl === c.ml}
-              onPress={() => updateWidget({ defaultWaterMl: c.ml })}
+              label={`${c.label} ${c.ml} mL`}
+              on={!customWaterMode && widget.defaultWaterMl === c.ml}
+              onPress={() => selectWaterPreset(c.ml)}
             />
           ))}
+          <Chip
+            label={
+              customWaterMode && customWaterMl
+                ? `PERSO ${customWaterMl} mL`
+                : 'PERSONNALISÉ'
+            }
+            on={customWaterMode}
+            onPress={selectCustomWater}
+          />
         </View>
+        {customWaterMode && (
+          <View style={styles.customRow}>
+            <TextInput
+              style={styles.customInput}
+              keyboardType="numeric"
+              value={customWaterMl}
+              onChangeText={onCustomWaterChange}
+              placeholder="ex. 400"
+              placeholderTextColor={C.textDim}
+              maxLength={4}
+            />
+            <Text style={styles.customUnit}>mL</Text>
+          </View>
+        )}
 
         {/* ————— PROFIL ————— */}
         <Text style={styles.section}>PROFIL (ALIMENTE LE WIDGET)</Text>
@@ -308,6 +368,10 @@ export function WidgetsScreen() {
             {Math.round(need)} mL / jour ({profile.weightKg} × 32)
           </Text>
         </Row>
+        <Pressable style={styles.action} onPress={confirmRestartOnboarding}>
+          <Text style={styles.actionTxt}>REFAIRE LE QUESTIONNAIRE</Text>
+          <Text style={styles.actionArrow}>›</Text>
+        </Pressable>
 
         {/* ————— NOTIFS ————— */}
         <Text style={styles.section}>NOTIFICATIONS</Text>
@@ -468,6 +532,28 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.mono,
     textAlign: 'right',
     fontSize: 16,
+  },
+  customRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: C.bgSoft,
+    borderRadius: RADIUS.md,
+    borderWidth: 1.5,
+    borderColor: C.segmentFull,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  customInput: {
+    flex: 1,
+    color: C.text,
+    fontFamily: FONTS.monoBold,
+    fontSize: 22,
+    paddingVertical: 14,
+  },
+  customUnit: {
+    color: C.textDim,
+    fontFamily: FONTS.mono,
+    fontSize: 15,
   },
   readonly: {
     color: C.text,

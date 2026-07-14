@@ -21,11 +21,15 @@ const APP_GROUP =
 
 type BridgeShape = {
   writeSnapshot(appGroup: string, json: string): Promise<void>;
+  readSnapshot(appGroup: string): Promise<string | null>;
   reloadWidget(): Promise<void>;
 };
 
 const noopBridge: BridgeShape = {
   async writeSnapshot() {},
+  async readSnapshot() {
+    return null;
+  },
   async reloadWidget() {},
 };
 
@@ -37,6 +41,18 @@ const bridge: BridgeShape =
 
 export async function writeSharedSnapshot(snap: SharedSnapshot): Promise<void> {
   await bridge.writeSnapshot(APP_GROUP, JSON.stringify(snap));
+}
+
+// Read the snapshot the widget shares. Used to merge events the widget's
+// buttons appended (via App Intents) while the app was in the background.
+export async function readSharedSnapshot(): Promise<SharedSnapshot | null> {
+  const raw = await bridge.readSnapshot(APP_GROUP);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as SharedSnapshot;
+  } catch {
+    return null;
+  }
 }
 
 export async function reloadWidgetTimelines(): Promise<void> {
