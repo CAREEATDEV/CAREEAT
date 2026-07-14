@@ -12,10 +12,12 @@ import { DataScreen } from './src/screens/DataScreen';
 import { WidgetsScreen } from './src/screens/WidgetsScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { AuthScreen } from './src/screens/AuthScreen';
+import { PaywallScreen } from './src/screens/PaywallScreen';
 import { C, FONTS } from './src/theme/colors';
 import { ensurePermissions } from './src/notifications/scheduler';
 import { useHydration } from './src/store/useHydration';
 import { useAuth } from './src/store/useAuth';
+import { useSubscription } from './src/store/useSubscription';
 import { startSync } from './src/sync/cloudSync';
 
 const Tab = createBottomTabNavigator();
@@ -54,6 +56,8 @@ export default function App() {
 
   const onboarded = useHydration((s) => s.onboarded);
   const authStatus = useAuth((s) => s.status);
+  const userId = useAuth((s) => s.user?.id ?? null);
+  const subStatus = useSubscription((s) => s.status);
   const [storeHydrated, setStoreHydrated] = useState(
     useHydration.persist.hasHydrated()
   );
@@ -73,6 +77,13 @@ export default function App() {
     return unsub;
   }, []);
 
+  // Once signed in, bring up the subscription (RevenueCat) for that account.
+  useEffect(() => {
+    if (authStatus === 'signedIn' && userId) {
+      useSubscription.getState().init(userId).catch(() => {});
+    }
+  }, [authStatus, userId]);
+
   // Wait for fonts, persisted state AND auth before deciding what to show.
   if (!fontsLoaded || !storeHydrated || authStatus === 'loading') {
     return <Splash />;
@@ -85,6 +96,23 @@ export default function App() {
         <SafeAreaProvider>
           <StatusBar style="light" />
           <AuthScreen />
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    );
+  }
+
+  // Signed in but subscription still resolving → splash (brief).
+  if (subStatus === 'loading') {
+    return <Splash />;
+  }
+
+  // Signed in, no active subscription/trial → hard paywall (no free access).
+  if (subStatus === 'inactive') {
+    return (
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <StatusBar style="light" />
+          <PaywallScreen />
         </SafeAreaProvider>
       </GestureHandlerRootView>
     );

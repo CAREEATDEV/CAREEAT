@@ -23,6 +23,12 @@ const SUPABASE_ANON_KEY =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
   'sb_publishable_A51TxCrIYng_8fa5PtV_yw_TMNtjZAi';
 
+// RevenueCat public SDK keys (safe to ship). Set once your RevenueCat project
+// exists. While empty, the paywall stays DISABLED (app fully usable) — see
+// src/store/useSubscription.ts. iOS key looks like `appl_xxx`, Android `goog_xxx`.
+const REVENUECAT_IOS_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY || '';
+const REVENUECAT_ANDROID_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY || '';
+
 module.exports = ({ config }) => {
   const teamId = process.env.HYDRA_TEAM_ID || DEFAULT_TEAM_ID;
   const withWidget = !process.env.HYDRA_NO_WIDGET;
@@ -54,6 +60,8 @@ module.exports = ({ config }) => {
     ...(config.extra || {}),
     supabaseUrl: SUPABASE_URL,
     supabaseAnonKey: SUPABASE_ANON_KEY,
+    revenueCatIosKey: REVENUECAT_IOS_KEY,
+    revenueCatAndroidKey: REVENUECAT_ANDROID_KEY,
   };
 
   // EAS reads extra.eas.build.experimental.ios.appExtensions to provision the
