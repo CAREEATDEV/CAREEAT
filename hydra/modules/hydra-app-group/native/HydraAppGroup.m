@@ -1,4 +1,4 @@
-// Objective-C bridge header exposing HydraAppGroup to the RN bridge.
+// Objective-C bridge exposing HydraAppGroup to the RN bridge.
 #import <React/RCTBridgeModule.h>
 
 @interface RCT_EXTERN_MODULE(HydraAppGroup, NSObject)

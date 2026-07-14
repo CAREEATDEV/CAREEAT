@@ -36,6 +36,9 @@ module.exports = ({ config }) => {
 
   if (withWidget) {
     plugins.push(['@bacons/apple-targets', { appleTeamId: teamId }]);
+    // Compile the HydraAppGroup native module into the main app so the JS bridge
+    // can write the shared snapshot the widget reads.
+    plugins.push(require('./plugins/withHydraAppGroup'));
     ios.entitlements = {
       'com.apple.security.application-groups': [APP_GROUP],
     };

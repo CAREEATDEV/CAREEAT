@@ -1,9 +1,8 @@
-// Native RN module compiled into the main app (not the widget) that lets the
-// JS side write into the shared App Group and reload widget timelines.
-// The @bacons/apple-targets config plugin picks up files in this folder and
-// adds them to the correct target based on filename — this one is auto-added
-// to the main app if you name it *AppGroup*.swift. If your setup does not
-// auto-wire it, move this file next to your other RN native modules.
+// Native RN module compiled into the MAIN app (never the widget extension).
+// Lets the JS side write the shared snapshot into the App Group and reload the
+// widget timelines. Injected into the app target by plugins/withHydraAppGroup.js
+// (kept outside targets/ so @bacons/apple-targets does not sweep it into the
+// widget target, where `import React` is unavailable).
 
 import Foundation
 import WidgetKit
