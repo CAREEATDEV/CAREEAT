@@ -1,0 +1,51 @@
+﻿{
+  "id": "5f1f2cfa-8831-4ef4-a405-338fcf5ac6f4",
+  "status": "ERRORED",
+  "platform": "IOS",
+  "error": {
+    "errorCode": "XCODE_BUILD_ERROR",
+    "message": "The \"Run fastlane\" step failed because of an error in the Xcode build process. We automatically detected following errors in your Xcode build logs:\n- method must be declared fileprivate because its result uses a private type\n- method must be declared fileprivate because its parameter uses a private type\nRefer to \"Xcode Logs\" below for additional, more detailed logs."
+  },
+  "artifacts": {
+    "xcodeBuildLogsUrl": "https://storage.googleapis.com/eas-workflows-production/logs/4f3424ee-a698-4211-8958-04e12daf0911/5f1f2cfa-8831-4ef4-a405-338fcf5ac6f4/2026-07-14T09%3A48%3A28Z-5f1f2cfa-8831-4ef4-a405-338fcf5ac6f4-xcode.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20260714%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260714T095059Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=9f8ca45e1637d9ca9c57933b44ad911c38de3c13cfb5bab6bf5a9f32a3305217b6dd7a49ae4c6e221420f238b7dedb85f9d5e61e02250524bdb98a7691bb042949b8ccb631cf0ffb485cb85f7aba5e56bc0cfb1d218f67db9ed04ed6c7079e243270eac771db13b7d6906289d5b5ced7ae50f3a613166c69f2b31f64d2b7e9e7cdbaf95e410ca29301dc78b42c9c42883790d66aa1c16097c1c2b1e762fc13a43440dfa2dc7896dbd6bef387fc3ec09251bbd7095f545c4734a1e8ccfcbc3678376e25bc9bf5a4bde52571129c6f968933e480cfb877ecd0b0f908ed450fa09b39499facdbf35fabb8812f7e469d6caed30da55d9b1fa991547b958cc7fa57cf"
+  },
+  "fingerprint": {
+    "id": "019f6007-1205-7dba-9fba-0f041f4f0b17",
+    "hash": "091a8ce0c3d50334e033857921ca8a89497a61f0"
+  },
+  "initiatingActor": {
+    "id": "35421e48-d5ee-47ca-a8b7-5286ad84a819",
+    "displayName": "cleeeeem"
+  },
+  "logFiles": [
+    "https://storage.googleapis.com/eas-workflows-production/logs/4f3424ee-a698-4211-8958-04e12daf0911/5f1f2cfa-8831-4ef4-a405-338fcf5ac6f4/2026-07-14T09%3A48%3A28Z-5f1f2cfa-8831-4ef4-a405-338fcf5ac6f4-xcode.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20260714%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260714T095059Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=9f8ca45e1637d9ca9c57933b44ad911c38de3c13cfb5bab6bf5a9f32a3305217b6dd7a49ae4c6e221420f238b7dedb85f9d5e61e02250524bdb98a7691bb042949b8ccb631cf0ffb485cb85f7aba5e56bc0cfb1d218f67db9ed04ed6c7079e243270eac771db13b7d6906289d5b5ced7ae50f3a613166c69f2b31f64d2b7e9e7cdbaf95e410ca29301dc78b42c9c42883790d66aa1c16097c1c2b1e762fc13a43440dfa2dc7896dbd6bef387fc3ec09251bbd7095f545c4734a1e8ccfcbc3678376e25bc9bf5a4bde52571129c6f968933e480cfb877ecd0b0f908ed450fa09b39499facdbf35fabb8812f7e469d6caed30da55d9b1fa991547b958cc7fa57cf",
+    "https://storage.googleapis.com/eas-workflows-production/logs/4f3424ee-a698-4211-8958-04e12daf0911/5f1f2cfa-8831-4ef4-a405-338fcf5ac6f4/2026-07-14T09%3A48%3A28Z-e85c7a22-84c2-4c15-a8a7-d86b59511478.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20260714%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260714T094937Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=9252fbbce57f849e38ca3c75c7e8951092f1b93b13b570e6e201d1c2f72a89be6e640c82955d8b9bbe3f54252c8ddc7440925227b108adb9256abed2674db527f6844d28356f8eac91e53c72ea1b98a29d199feccf80eae0fbd8ded8cf30f1fd0ebacafd29cd19f991057536c9e5a4d15fa746bde7d2770b821e9e65d9b4c437699a24ed7c75d09b1464f5929fc19601cef9e9ee30c6297dc8a1d0cc17c29b3a422fb86091730f5d2dd88e441b97532faa8062e802e523da3e76c1d6d4ef0fd7554cee1c4ef223306aaf36dfdcf6c3c3697bdd6b5eb7760541d53f8180d9a5d7d965831828980f83d63df7d864a87d34a168054f8ecfea2d1b288b453d26b841"
+  ],
+  "project": {
+    "id": "4f3424ee-a698-4211-8958-04e12daf0911",
+    "name": "hydra",
+    "slug": "hydra",
+    "ownerAccount": {
+      "id": "a0fcdd53-7adb-4a1a-be72-b55ea305feb8",
+      "name": "cleeeeem"
+    }
+  },
+  "distribution": "INTERNAL",
+  "buildProfile": "preview",
+  "sdkVersion": "51.0.0",
+  "appVersion": "0.1.0",
+  "appBuildVersion": "1",
+  "gitCommitHash": "15ec614a9e02fb83850781c8226798cf877be65f",
+  "gitCommitMessage": "fix(ios widget): move HydraAppGroup RN module out of widget target into main app via config plugin; drop Swift test from widget build\n\nCo-authored-by: Cursor <cursoragent@cursor.com>",
+  "priority": "HIGH",
+  "createdAt": "2026-07-14T09:48:23.906Z",
+  "updatedAt": "2026-07-14T09:50:23.826Z",
+  "completedAt": "2026-07-14T09:50:23.031Z",
+  "expirationDate": "2026-10-12T09:48:23.935Z",
+  "isForIosSimulator": false,
+  "metrics": {
+    "buildWaitTime": 4173,
+    "buildQueueTime": 21601,
+    "buildDuration": 93351
+  }
+}

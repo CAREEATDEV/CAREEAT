@@ -13,7 +13,9 @@ private let SNAPSHOT_KEY = "hydraSnapshot"
 
 // Read-write mirror of the shared snapshot (SharedSnapshot in the engine is
 // decode-only). Reuses the Codable HydrationEvent / UserProfile from the engine.
-private struct HydraSnapshotRW: Codable {
+// Internal (not private) so HydraStore's internal methods can expose it in their
+// signatures without triggering Swift access-control errors.
+struct HydraSnapshotRW: Codable {
     var version: Int
     var updatedAt: TimeInterval
     var events: [HydrationEvent]
