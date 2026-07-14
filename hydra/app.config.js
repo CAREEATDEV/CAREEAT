@@ -23,10 +23,11 @@ const SUPABASE_ANON_KEY =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
   'sb_publishable_A51TxCrIYng_8fa5PtV_yw_TMNtjZAi';
 
-// RevenueCat public SDK keys (safe to ship). Set once your RevenueCat project
-// exists. While empty, the paywall stays DISABLED (app fully usable) — see
-// src/store/useSubscription.ts. iOS key looks like `appl_xxx`, Android `goog_xxx`.
-const REVENUECAT_IOS_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY || '';
+// RevenueCat public SDK keys (safe to ship — same trust model as the Supabase
+// anon key above). While empty, the paywall stays DISABLED (app fully usable)
+// — see src/store/useSubscription.ts. Android key not set yet (`goog_xxx`).
+const REVENUECAT_IOS_KEY =
+  process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY || 'appl_ZkWFgPnwlUIAcaJwpVwxLICWyOS';
 const REVENUECAT_ANDROID_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY || '';
 
 module.exports = ({ config }) => {
