@@ -10,3 +10,6 @@ android/keystores/
 *.log
 .DS_Store
 coverage/
+
+iosw.*
+biv.json
