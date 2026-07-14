@@ -177,44 +177,38 @@ struct HydraMediumView: View {
     let state: HydrationState
     var body: some View {
         let c = zoneColor(state)
-        VStack(spacing: 9) {
-            HStack(spacing: 14) {
+        VStack(spacing: 8) {
+            HStack(spacing: 12) {
                 // left: stats
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("HYDRA").font(.system(size: 10, weight: .black)).kerning(2).foregroundColor(.hDim)
-                    Text("\(Int(state.levelPct))%").font(.system(size: 33, weight: .black)).foregroundColor(c)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("HYDRA").font(.system(size: 9, weight: .black)).kerning(1.5).foregroundColor(.hDim)
+                    Text("\(Int(state.levelPct))%").font(.system(size: 30, weight: .black)).foregroundColor(c)
                         .minimumScaleFactor(0.6).lineLimit(1)
-                    Text(statusText(state)).font(.system(size: 9.5, weight: .black)).kerning(0.5).foregroundColor(c)
+                    Text(statusText(state)).font(.system(size: 9, weight: .black)).kerning(0.4).foregroundColor(c)
+                        .lineLimit(1).minimumScaleFactor(0.7)
                 }
                 .fixedSize()
                 .overlay(Rectangle().fill(Color.hEmpty).frame(width: 1), alignment: .trailing)
-                .padding(.trailing, 14)
+                .padding(.trailing, 12)
                 // right: need + countdown + bar
-                VStack(alignment: .leading, spacing: 7) {
+                VStack(alignment: .leading, spacing: 6) {
                     HStack {
-                        Text("besoin \(Int(state.dailyNeedMl)) mL").font(.system(size: 9, design: .monospaced)).foregroundColor(.hDim)
-                        Spacer()
-                        Text(countdown(state)).font(.system(size: 9, design: .monospaced)).foregroundColor(.hDim)
+                        Text("besoin \(Int(state.dailyNeedMl)) mL").font(.system(size: 8.5, design: .monospaced)).foregroundColor(.hDim).lineLimit(1).minimumScaleFactor(0.7)
+                        Spacer(minLength: 4)
+                        Text(countdown(state)).font(.system(size: 8.5, design: .monospaced)).foregroundColor(.hDim).lineLimit(1)
                     }
-                    HydraSegBar(pct: state.levelPct, color: c, height: 12)
+                    HydraSegBar(pct: state.levelPct, color: c, height: 11)
                 }
             }
             if #available(iOS 17.0, *) {
-                HydraTapButton(title: "＋ EAU", color: c, intent: LogWaterIntent(volumeMl: 250))
-                // ALCOOL group : Léger 2–8° / Moyen 9–22° / Fort 30–45°
-                VStack(spacing: 6) {
-                    HStack {
-                        Text("ALCOOL").font(.system(size: 9, weight: .black)).kerning(2).foregroundColor(.hAmber)
-                        Spacer()
-                    }
-                    HStack(spacing: 7) {
-                        HydraTapButton(title: "LÉGER 2–8°",  color: .hAmber, intent: LogAlcoholIntent(volumeMl: 400, abv: 5))
-                        HydraTapButton(title: "MOYEN 9–22°", color: .hAmber, intent: LogAlcoholIntent(volumeMl: 150, abv: 14))
-                        HydraTapButton(title: "FORT 30–45°", color: .hRed,   intent: LogAlcoholIntent(volumeMl: 40,  abv: 40))
-                    }
+                // One compact action row: water + the three alcohol tiers, all
+                // inside the widget bounds (no boxed wrapper so it fits vertically).
+                HStack(spacing: 6) {
+                    HydraTapButton(title: "＋ EAU", color: c, intent: LogWaterIntent(volumeMl: 250))
+                    HydraTapButton(title: "LÉGER",  color: .hAmber, intent: LogAlcoholIntent(volumeMl: 400, abv: 5))
+                    HydraTapButton(title: "MOYEN",  color: .hAmber, intent: LogAlcoholIntent(volumeMl: 150, abv: 14))
+                    HydraTapButton(title: "FORT",   color: .hRed,   intent: LogAlcoholIntent(volumeMl: 40,  abv: 40))
                 }
-                .padding(8)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(red: 0.165, green: 0.129, blue: 0.082), lineWidth: 1))
             }
         }
         .containerBackground(for: .widget) { Color(red: 0.039, green: 0.047, blue: 0.063) }

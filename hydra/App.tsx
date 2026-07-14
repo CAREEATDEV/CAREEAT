@@ -6,6 +6,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { View, Text } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { DataScreen } from './src/screens/DataScreen';
 import { WidgetsScreen } from './src/screens/WidgetsScreen';
@@ -120,30 +121,43 @@ export default function App() {
           <Tab.Navigator
             screenOptions={{
               headerShown: false,
-              tabBarStyle: { backgroundColor: C.bg, borderTopColor: C.bgSoft },
+              tabBarStyle: {
+                backgroundColor: C.bg,
+                borderTopColor: C.bgSoft,
+              },
               tabBarActiveTintColor: C.segmentFull,
               tabBarInactiveTintColor: C.textDim,
-              tabBarLabelStyle: { fontFamily: FONTS.label, letterSpacing: 2 },
+              tabBarLabelStyle: {
+                fontFamily: FONTS.label,
+                letterSpacing: 2,
+                fontSize: 10,
+              },
             }}
           >
-            <Tab.Screen name="BARRE" component={HomeScreen} />
-            <Tab.Screen name="DONNÉES" component={DataScreen} />
+            <Tab.Screen
+              name="BARRE"
+              component={HomeScreen}
+              options={{
+                tabBarIcon: ({ color, size }) => (
+                  <Ionicons name="water" size={size} color={color} />
+                ),
+              }}
+            />
+            <Tab.Screen
+              name="DONNÉES"
+              component={DataScreen}
+              options={{
+                tabBarIcon: ({ color, size }) => (
+                  <Ionicons name="stats-chart" size={size} color={color} />
+                ),
+              }}
+            />
             <Tab.Screen
               name="WIDGETS"
               component={WidgetsScreen}
               options={{
-                tabBarLabel: ({ focused }) => (
-                  <Text
-                    style={{
-                      fontFamily: FONTS.display,
-                      letterSpacing: 2,
-                      fontSize: 12,
-                      color: C.segmentFull,
-                      opacity: focused ? 1 : 0.75,
-                    }}
-                  >
-                    ★ WIDGETS
-                  </Text>
+                tabBarIcon: ({ color, size }) => (
+                  <Ionicons name="apps" size={size} color={color} />
                 ),
               }}
             />
