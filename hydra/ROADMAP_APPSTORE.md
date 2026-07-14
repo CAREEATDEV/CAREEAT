@@ -1,125 +1,89 @@
 # HYDRA — Roadmap vers l'App Store
 
-Tout ce qui manque avant que l'app soit **visible et téléchargeable sur l'App
-Store**. Coche au fur et à mesure. Ordonné par chemin critique.
+Ce qui reste avant que l'app soit **visible et téléchargeable sur l'App Store**.
+Coche au fur et à mesure. Ordonné par chemin critique.
 
-Contexte machine : **Windows, pas de Mac** → tout le build iOS passe par **EAS
-Build (cloud)**, jamais `expo run:ios`. Compte Apple Developer payant OK
-(Team ID `QN65J7X695`).
+Contexte : **Windows, pas de Mac** → build iOS via **EAS Build (cloud)**. Compte
+Apple Developer payant (Team ID `QN65J7X695`). Bundle `com.shipply.hydraapp`.
 
----
-
-## 🔀 2 décisions à trancher AVANT de builder (elles changent la suite)
-
-- [ ] **Décision A — Comptes ou local-only pour la v1 ?**
-  - On a choisi « Sign in with Apple + email » et le backend est prêt, MAIS il
-    n'est **pas branché** dans l'app.
-  - **Option rapide (recommandée pour sortir vite) :** v1 **100 % locale** (pas
-    de compte, pas de sync). Review Apple plus simple, moins de risque de rejet,
-    pas d'écran de connexion. Le backend attend, on branche la sync en **v1.1**.
-  - **Option complète :** brancher comptes + sync maintenant → +1 à 2 semaines de
-    dev (auth Apple/email, couche sync offline-first, suppression de compte
-    in-app **obligatoire**, labels de confidentialité « données collectées »).
-  - 👉 Recommandation : **sortir en local-only**, ajouter la sync juste après.
-
-- [ ] **Décision B — Prix : gratuit, freemium, ou abonnement ?**
-  - Le questionnaire devait décider. Tant que ce n'est pas tranché, on ne peut
-    pas configurer la fiche.
-  - **Gratuit** → aucune intégration, review la plus simple. **Freemium/abo** →
-    StoreKit / RevenueCat + produits d'achat configurés + review plus lourde.
-  - 👉 Recommandation : **lancer gratuit** (ou gratuit avec abo ajouté en v1.1)
-    pour réduire le risque au premier passage en review.
+**Décisions verrouillées :** app **100 % payante** · abonnement **3,99 €/mois +
+essai 7 jours** · comptes **Sign in with Apple + email** (Supabase) · backend sur
+tier gratuit Supabase.
 
 ---
 
-## Phase 1 — 🚧 BLOQUANT : premier build iOS réel
+## ✅ DÉJÀ FAIT (le plus dur est derrière)
 
-Le widget Swift n'a **jamais été compilé** — c'est le plus gros risque. À faire
-en premier, tout le reste en dépend.
-
-- [ ] Enregistrer l'**App Group** `group.com.shipply.hydraapp` dans Apple Developer
-      (Identifiers → App Groups) et l'associer à l'App ID `com.shipply.hydraapp`.
-- [ ] `eas login` puis **build de développement** :
-      `eas build --profile development --platform ios` (cloud, depuis Windows).
-- [ ] Corriger les **erreurs de compilation Swift** qui sortiront (widget, App
-      Intents iOS 17, ControlWidget iOS 18) — probables au 1er essai.
-- [ ] Installer le build sur un **vrai iPhone** (TestFlight interne).
-- [ ] Vérifier sur l'appareil : les 3 onglets, l'onboarding, le moteur, puis
-      **le widget** (écran verrouillé + accueil), les boutons ＋EAU (App Intents),
-      le partage App Group app ↔ widget.
-- [ ] Corriger ce qui casse, re-builder jusqu'à ce que le widget marche.
-
-## Phase 2 — Finaliser le produit
-
-- [ ] **Icône 1024 définitive** (l'actuelle est un placeholder de 6 Ko) + vérifier
-      le splash. Design cohérent avec le logo goutte segmentée.
-- [ ] (Si Décision A = comptes) brancher **auth + sync** offline-first
-      (`hydra/backend/README.md`) : client Supabase, écran connexion Apple/email,
-      push/pull des events, **suppression de compte in-app**.
-- [ ] (Optionnel) corriger le **bug latent `computeState`** (traite les events
-      futurs — sans impact en usage normal).
-- [ ] Passe finale : aucun texte placeholder, tous les écrans propres, gestion
-      des permissions notifications.
-- [ ] Incrémenter `version` (0.1.0 → 1.0.0) et `buildNumber` dans `app.json`.
-
-## Phase 3 — Contenu & métadonnées App Store
-
-- [ ] **Captures d'écran** aux tailles requises (obligatoire : iPhone 6.7").
-      Depuis le build EAS / un simulateur Mac (ou un service de mockup).
-- [ ] (Optionnel) **App preview** vidéo (tu as déjà `app-demo.html` pour t'en
-      inspirer).
-- [ ] Textes : **nom**, sous-titre, **description**, mots-clés, **catégorie
-      Santé & Forme**, URL marketing (la landing).
-- [ ] **Classification d'âge : 17+** (l'app référence l'alcool — obligatoire).
-- [ ] **Labels de confidentialité** (App Privacy) : déclarer honnêtement les
-      données. En local-only : « aucune donnée collectée ». Avec backend : santé/
-      alcool + identifiant compte.
-
-## Phase 4 — Légal & conformité
-
-- [ ] **Politique de confidentialité HYDRA** hébergée (URL **obligatoire** pour la
-      fiche). À créer — l'app n'en a pas (celles du repo sont CAREEAT). Peut être
-      ajoutée à la landing (`hydra-landing/privacy.html`).
-- [ ] **URL de support** (page ou email) — obligatoire.
-- [ ] **Disclaimer non médical** bien visible (déjà présent dans l'app — bon
-      point ; éviter toute allégation santé/médicale dans la description).
-- [ ] **Alcool** : ne pas encourager la consommation excessive (le positionnement
-      « alcool = poison, réduis-le » est OK) ; 17+.
-- [ ] (Si comptes) **suppression de compte in-app** (exigence Apple) + export/
-      suppression des données (RGPD, projet en eu-west-1 → OK côté hébergement).
-
-## Phase 5 — App Store Connect & soumission
-
-- [ ] Créer la **fiche app** dans App Store Connect (bundle `com.shipply.hydraapp`).
-- [ ] **Build de production** : `eas build --profile production --platform ios`.
-- [ ] Envoyer le build : `eas submit --platform ios` (ou Transporter).
-- [ ] Remplir métadonnées + captures + **prix** (Décision B).
-- [ ] **TestFlight** (bêta externe recommandée avant la vraie soumission).
-- [ ] **Soumettre pour review**. Délai ~1–3 jours ; prévoir 1 rejet possible
-      (confidentialité, métadonnées, allégations santé) → corriger, resoumettre.
-- [ ] ✅ **En ligne sur l'App Store.**
+- [x] **Moteur physiologique** complet + testé (57 tests verts, port Swift synchro).
+- [x] App 3 onglets (BARRE / DONNÉES / WIDGETS), onboarding, métrique poison.
+- [x] **App Group** `group.com.shipply.hydraapp` enregistré + associé à l'App ID.
+- [x] **1er build EAS iOS réussi** → installé sur iPhone 14. 🎉
+- [x] **⭐ Le widget FONCTIONNE sur l'iPhone** — écran d'accueil ET écran de
+      verrouillage. *(C'était LE grand risque du projet : le Swift jamais compilé.
+      Il est levé.)*
+- [x] **Auth branchée** : Sign in with Apple + email (Supabase), configurée côté
+      Apple (App ID, Services ID, clé .p8, secret) et dans le dashboard.
+- [x] **Comptes** : écran de connexion, gate de l'app, **suppression de compte
+      in-app** (edge function déployée), **sync offline-first** codée.
+- [x] Backend Supabase : tables + RLS + analytics (audit sécurité : 0 problème).
 
 ---
 
-## 🤖 Android (en parallèle, secondaire — selon ton plan)
+## 🔜 CE QUI RESTE
 
-- [x] Build APK de test perso (en cours).
-- [ ] Play Store **plus tard** : compte Play Console (25 $ une fois), fiche,
-      captures, politique de confidentialité, classification. ⚠️ Le **widget est
-      iOS-only** — un widget Android équivalent (Glance) serait un chantier séparé.
+### Phase A — Abonnement / paywall (💻 Claude code — pas encore fait)
+- [ ] Intégrer **RevenueCat** (SDK + écran paywall + **verrouillage total** : rien
+      d'accessible sans abonnement/essai actif).
+- [ ] Compte **RevenueCat** (gratuit) — *toi*, revenuecat.com.
+- [ ] Créer l'**abonnement auto-renouvelable 3,99 € + essai 7 j** dans App Store
+      Connect — *toi seul*.
+- [ ] Accord **« Paid Applications »** + coordonnées **bancaires** + **fiscales** —
+      *toi seul, obligatoire avant tout paiement*.
+- [ ] Tester l'achat en **sandbox** sur ton iPhone — *toi*.
+
+### Phase B — Vérifs réelles sur ton iPhone (📱 toi, maintenant que tu as le build)
+- [ ] Tester la **connexion Apple** en vrai (bouton Apple, natif).
+- [ ] Créer un compte, logguer des verres → vérifier que ça **remonte dans
+      Supabase** (`public.events` / `analytics.overview` dans le SQL editor).
+- [ ] Tester **suppression de compte** + déconnexion.
+- [ ] Vérifier notifications + boutons ＋EAU du widget (App Intents).
+
+### Phase C — Assets & légal (💻 Claude + 📱 toi)
+- [ ] **Icône 1024 définitive** (l'actuelle est un placeholder) — *Claude*.
+- [ ] **Politique de confidentialité HYDRA** + **page support**, hébergées (URL
+      **obligatoire**) — *Claude écrit + déploie sur la landing*.
+- [ ] **Captures d'écran** iPhone 6,7" (tu as le device → capture direct) — *toi*.
+- [ ] Incrémenter `version` 0.1.0 → **1.0.0** + `buildNumber` — *Claude*.
+
+### Phase D — App Store Connect (📱 toi seul, non délégable)
+- [ ] Créer la **fiche app** (bundle `com.shipply.hydraapp`).
+- [ ] **Nom, sous-titre, description, mots-clés** (Claude rédige, tu colles).
+- [ ] Catégorie **Santé & Forme** · classification **17+** (alcool).
+- [ ] **Labels de confidentialité** : données santé/alcool + identifiant de compte
+      (Claude te donne exactement quoi cocher).
+
+### Phase E — Build prod & soumission
+- [ ] **Build de production AVEC widget** : `eas build -p ios --profile production`.
+- [ ] `eas submit -p ios` → **TestFlight** (bêta) → **Soumettre pour review**.
+- [ ] Review Apple ~1-3 j (prévoir 1 rejet possible → on corrige, on resoumet).
+- [ ] ✅ **EN LIGNE SUR L'APP STORE.**
 
 ---
 
-## ⏱️ Chemin critique le plus court vers « en ligne »
+## 🤖 Android (secondaire — selon ton plan)
+- [x] Build APK de test perso.
+- [ ] Play Store plus tard : Play Console (25 $ une fois), fiche, abonnement,
+      confidentialité. ⚠️ Widget iOS-only ; un widget Android = chantier séparé.
 
-En visant **local-only + gratuit** (le plus rapide) :
+---
 
-1. Enregistrer l'App Group + **1er build EAS iOS** → corriger les erreurs Swift.
-2. Tester le widget sur iPhone → stabiliser.
-3. Icône définitive + captures + **politique de confidentialité** + support URL.
-4. Fiche App Store Connect (17+, Santé & Forme, gratuit) + labels « aucune donnée ».
-5. Build prod → `eas submit` → TestFlight → **soumission**.
+## ⏱️ Où on en est
 
-Estimation réaliste : **1 à 3 semaines** selon le nombre d'allers-retours sur le
-build Swift (le grand inconnu, car jamais compilé) et la review Apple. Ajouter
-comptes+sync ou un abonnement pousse plutôt vers **4–6 semaines**.
+Le chemin critique le plus risqué (**build iOS + widget natif**) est **terminé et
+validé sur device**. Il reste surtout : le **paywall abonnement** (le vrai gros
+morceau de code restant), les **assets + pages légales**, et la **config +
+soumission App Store Connect** (beaucoup d'étapes « toi seul » côté Apple, mais
+sans inconnue technique).
+
+**Estimation : ~1 à 2 semaines** selon la vitesse de config App Store Connect et
+la review Apple. Prochaine étape logique : **Phase A — le paywall**.
