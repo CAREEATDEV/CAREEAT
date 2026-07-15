@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HYDRA · Studio vidéo</title>
+<style>
+  :root{
+    --bg:#000; --panel:#101216; --line:#23272E;
+    --green:#3EE07A; --red:#FF3B4A; --amber:#FFB020; --poison:#B44CFF;
+    --text:#EDEFF2; --dim:#7C828C;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;background:var(--bg);color:var(--text);letter-spacing:.3px;
+    font-family:ui-monospace,'Cascadia Mono','Segoe UI Mono',Menlo,Consolas,monospace;
+    display:grid;grid-template-columns:420px 1fr;min-height:100vh;
+  }
+  @media(max-width:900px){ body{grid-template-columns:1fr;} }
+  .panel{background:var(--panel);border-right:1px solid var(--line);
+    padding:26px 22px;display:flex;flex-direction:column;gap:18px;
+    max-height:100vh;overflow-y:auto;}
+  .brandhead{font-size:24px;letter-spacing:8px;font-weight:700;}
+  .brandhead b{color:var(--green);}
+  .brandhead span{color:var(--dim);font-size:12px;letter-spacing:3px;display:block;margin-top:4px;}
+  label{display:block;font-size:11px;letter-spacing:2px;color:var(--dim);
+    text-transform:uppercase;margin-bottom:8px;}
+  textarea,input[type=password]{
+    width:100%;background:#000;border:1px solid var(--line);border-radius:10px;
+    color:var(--text);font-family:inherit;font-size:15px;padding:12px 14px;
+    resize:vertical;letter-spacing:.3px;}
+  @media(max-width:900px){ textarea,input[type=password]{font-size:16px;} }
+  textarea{min-height:82px;line-height:1.4;}
+  textarea:focus,input:focus{outline:none;border-color:var(--green);}
+  .hint{font-size:11px;color:var(--dim);margin-top:6px;line-height:1.45;}
+  .hint code{color:var(--green);background:#000;padding:1px 5px;border-radius:4px;}
+  .hint b{color:var(--text);}
+  .gen{background:var(--green);color:#000;border:0;border-radius:12px;padding:16px;
+    font-family:inherit;font-weight:700;font-size:15px;letter-spacing:2px;cursor:pointer;
+    text-transform:uppercase;}
+  .gen:active{transform:translateY(1px);}
+  .gen:disabled{opacity:.5;cursor:progress;}
+  .log{background:#000;border:1px solid var(--line);border-radius:10px;padding:12px 14px;
+    font-size:12px;color:var(--dim);min-height:20px;white-space:pre-wrap;line-height:1.6;
+    max-height:180px;overflow-y:auto;}
+  .log.err{color:var(--red);border-color:var(--red);}
+  .log b{color:var(--green);}
+  .divider{height:1px;background:var(--line);}
+  .capblock label{margin-top:4px;}
+  .copybtn{background:transparent;border:1px solid var(--line);color:var(--text);
+    border-radius:8px;padding:9px 12px;font-family:inherit;font-size:11px;letter-spacing:2px;
+    cursor:pointer;margin-top:8px;text-transform:uppercase;}
+  .dl{display:inline-block;background:var(--green);color:#000;text-decoration:none;
+    border-radius:10px;padding:13px 16px;font-weight:700;font-size:13px;letter-spacing:1.5px;
+    text-transform:uppercase;text-align:center;}
+  .stage{display:flex;align-items:center;justify-content:center;padding:32px;}
+  .stage .empty{color:var(--dim);font-size:13px;letter-spacing:2px;text-align:center;}
+  video{max-width:100%;max-height:86vh;border-radius:14px;background:#000;
+    box-shadow:0 20px 60px rgba(0,0,0,.6);}
+</style>
+</head>
+<body>
+  <div class="panel">
+    <div class="brandhead">HYDR<b>A</b><span>STUDIO VIDÉO</span></div>
+
+    <div>
+      <label>Clé API Anthropic</label>
+      <input type="password" id="apikey" placeholder="sk-ant-…" autocomplete="off" spellcheck="false">
+      <div class="hint">Stockée <b>uniquement dans ce navigateur</b> (localStorage). Envoyée
+        à ton studio local, qui appelle Anthropic. Jamais écrite dans un fichier du repo.</div>
+    </div>
+
+    <div>
+      <label>Sujet de la vidéo (la seule chose à écrire)</label>
+      <textarea id="topic" placeholder="Ex. : Pourquoi tu es déjà déshydraté au réveil"></textarea>
+      <div class="hint">Claude fait la recherche, écrit l'accroche + les lignes à l'écran +
+        la réponse + les 2 légendes, et le studio rend la vidéo verticale.</div>
+    </div>
+
+    <button class="gen" id="generate">✦ Générer la vidéo</button>
+    <div class="log" id="log">Prêt.</div>
+
+    <div id="results" hidden>
+      <div class="divider" style="margin-bottom:16px"></div>
+      <a class="dl" id="dl" href="#" download>⬇ Télécharger la vidéo</a>
+      <div class="hint" id="dlnote"></div>
+
+      <div class="capblock" style="margin-top:16px">
+        <label>Légende Instagram</label>
+        <textarea id="cap-ig" style="min-height:120px"></textarea>
+        <button class="copybtn" data-copy="cap-ig">Copier</button>
+      </div>
+      <div class="capblock">
+        <label>Légende TikTok</label>
+        <textarea id="cap-tt" style="min-height:100px"></textarea>
+        <button class="copybtn" data-copy="cap-tt">Copier</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="empty" id="empty">L'aperçu de la vidéo s'affichera ici.</div>
+    <video id="preview" controls autoplay loop muted playsinline hidden></video>
+  </div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const KEY_LS = 'hydra.anthropic.key';
+  $('apikey').value = localStorage.getItem(KEY_LS) || '';
+  $('apikey').addEventListener('change', () =>
+    localStorage.setItem(KEY_LS, $('apikey').value.trim()));
+
+  const logEl = $('log');
+  function log(msg, append){
+    logEl.classList.remove('err');
+    logEl.textContent = append ? (logEl.textContent + '\n' + msg) : msg;
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+  function errLog(msg){ logEl.classList.add('err'); logEl.textContent = msg; }
+
+  document.querySelectorAll('[data-copy]').forEach(btn =>
+    btn.addEventListener('click', () => {
+      navigator.clipboard.writeText($(btn.dataset.copy).value || '');
+      const old = btn.textContent; btn.textContent = '✓ Copié';
+      setTimeout(() => { btn.textContent = old; }, 1200);
+    }));
+
+  $('generate').addEventListener('click', async () => {
+    const key = $('apikey').value.trim();
+    const topic = $('topic').value.trim();
+    if(!key){ errLog('Colle d\'abord ta clé API Anthropic.'); return; }
+    if(!topic){ errLog('Écris un sujet de vidéo.'); return; }
+    localStorage.setItem(KEY_LS, key);
+
+    $('generate').disabled = true;
+    $('results').hidden = true;
+    log('Démarrage…');
+    try {
+      const resp = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, key }),
+      });
+      // Lecture du flux NDJSON (une ligne par événement).
+      const reader = resp.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '', done = null;
+      while(true){
+        const { value, done: fin } = await reader.read();
+        if(fin) break;
+        buf += dec.decode(value, { stream: true });
+        let nl;
+        while((nl = buf.indexOf('\n')) >= 0){
+          const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
+          if(!line) continue;
+          const evt = JSON.parse(line);
+          if(evt.log) log(evt.log, true);
+          else if(evt.error) throw new Error(evt.error);
+          else if(evt.done) done = evt;
+        }
+      }
+      if(!done) throw new Error('Réponse incomplète du studio.');
+
+      // Aperçu + téléchargement
+      const v = $('preview');
+      v.src = done.video + '?t=' + Date.now();
+      v.hidden = false; $('empty').hidden = true;
+      $('dl').href = done.video + '?dl=1';
+      $('dl').setAttribute('download', 'hydra-video-' + done.slug + (done.isMp4 ? '.mp4' : '.webm'));
+      $('dlnote').innerHTML = done.isMp4
+        ? 'MP4 prêt pour Instagram et TikTok. Ajoute un son tendance au moment de poster.'
+        : '⚠️ Sortie WebM (ffmpeg-static manquant). Fais <code>npm install</code> pour du MP4.';
+      $('cap-ig').value = done.captionIg || '';
+      $('cap-tt').value = done.captionTt || '';
+      $('results').hidden = false;
+      log('✓ Vidéo prête. Vérifie les chiffres avant de poster.', true);
+    } catch(err){
+      errLog('Erreur : ' + (err.message || err));
+    } finally {
+      $('generate').disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

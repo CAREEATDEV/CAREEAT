@@ -1,0 +1,7 @@
+node_modules/
+out/
+*.mp4
+*.webm
+*.frames/
+hydra-video-*-contenu.json
+hydra-video-*-legende-*.txt

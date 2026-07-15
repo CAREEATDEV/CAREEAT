@@ -202,39 +202,39 @@ function normalizeContent(c) {
   };
 }
 
-// ── rendu ────────────────────────────────────────────────────────────────────
-async function main() {
-  const args = parseArgs(process.argv.slice(2));
-  const outDir = path.resolve(args.out || '.');
-  const fps = Math.max(10, Math.min(60, parseInt(args.fps, 10) || 30));
+// ── moteur réutilisable (CLI + studio web l'appellent tous les deux) ─────────
+// opts : { content?, topic?, key?, outDir, fps?, keepFrames?, slug?, onLog? }
+//  - content : objet contenu déjà prêt (re-rendu / test) ; sinon
+//  - topic + key : génère le contenu via Claude.
+// Retourne { video, isMp4, captionIg, captionTt, contentPath, content, base }.
+async function generateVideo(opts) {
+  const log = opts.onLog || (() => {});
+  const outDir = path.resolve(opts.outDir || '.');
+  const fps = Math.max(10, Math.min(60, parseInt(opts.fps, 10) || 30));
   fs.mkdirSync(outDir, { recursive: true });
 
-  // 1) Contenu : depuis un JSON existant, ou généré par Claude depuis le sujet.
+  // 1) Contenu.
   let content, slugBase;
-  if (args.json) {
-    content = normalizeContent(JSON.parse(fs.readFileSync(args.json, 'utf8')));
-    slugBase = slugify(path.basename(args.json).replace(/^hydra-video-|(-contenu)?\.json$/g, ''));
-  } else if (args.sujet) {
-    const key = args.key || process.env.ANTHROPIC_API_KEY || process.env.HYDRA_ANTHROPIC_KEY;
-    if (!key) {
-      throw new Error(
-        'Clé API manquante. Définis ANTHROPIC_API_KEY (ou passe --key). ' +
-        'Elle ne doit JAMAIS être écrite dans un fichier du repo.');
+  if (opts.content) {
+    content = normalizeContent(opts.content);
+    slugBase = slugify(opts.slug || content.hook);
+  } else if (opts.topic) {
+    if (!opts.key) {
+      throw new Error('Clé API manquante. Elle ne doit JAMAIS être écrite dans un fichier du repo.');
     }
-    console.log('⏳ Recherche scientifique + écriture (Claude)… 30-60 s');
-    content = normalizeContent(extractJSON(await callClaude(String(args.sujet), key)));
-    slugBase = slugify(args.sujet);
+    log('⏳ Recherche scientifique + écriture (Claude)… 30-60 s');
+    content = normalizeContent(extractJSON(await callClaude(String(opts.topic), opts.key)));
+    slugBase = slugify(opts.slug || opts.topic);
   } else {
-    console.error('Usage : node render-video.js --sujet "…"   (ou --json contenu.json)');
-    process.exit(1);
+    throw new Error('generateVideo : fournis content, ou topic + key.');
   }
 
   const base = path.join(outDir, `hydra-video-${slugBase}`);
   fs.writeFileSync(`${base}-contenu.json`, JSON.stringify(content, null, 2));
-  if (content.caption_instagram)
-    fs.writeFileSync(`${base}-legende-instagram.txt`, content.caption_instagram);
-  if (content.caption_tiktok)
-    fs.writeFileSync(`${base}-legende-tiktok.txt`, content.caption_tiktok);
+  const capIgPath = content.caption_instagram ? `${base}-legende-instagram.txt` : null;
+  const capTtPath = content.caption_tiktok ? `${base}-legende-tiktok.txt` : null;
+  if (capIgPath) fs.writeFileSync(capIgPath, content.caption_instagram);
+  if (capTtPath) fs.writeFileSync(capTtPath, content.caption_tiktok);
 
   // 2) Template + injections (polices du repo, contenu).
   const fontsDir = path.join(__dirname, '..', '..', '..', 'assets', 'fonts');
@@ -261,57 +261,91 @@ async function main() {
 
   const { chromium } = resolvePlaywright();
   const browser = await chromium.launch({ executablePath: chromiumExecutablePath() });
-  const page = await browser.newPage({ viewport: { width: 1080, height: 1920 } });
-  await page.goto(toFileUrl(tmpHtml));
-  await page.evaluate(() => document.fonts.ready);
+  try {
+    const page = await browser.newPage({ viewport: { width: 1080, height: 1920 } });
+    await page.goto(toFileUrl(tmpHtml));
+    await page.evaluate(() => document.fonts.ready);
 
-  const totalMs = await page.evaluate(() => window.__TOTAL_MS__);
-  const frameCount = Math.ceil((totalMs / 1000) * fps);
-  const framesDir = `${base}.frames`;
-  fs.rmSync(framesDir, { recursive: true, force: true });
-  fs.mkdirSync(framesDir, { recursive: true });
+    const totalMs = await page.evaluate(() => window.__TOTAL_MS__);
+    const frameCount = Math.ceil((totalMs / 1000) * fps);
+    const framesDir = `${base}.frames`;
+    fs.rmSync(framesDir, { recursive: true, force: true });
+    fs.mkdirSync(framesDir, { recursive: true });
 
-  console.log(`🎞  ${(totalMs / 1000).toFixed(1)} s · ${frameCount} frames à ${fps} fps (${ext})`);
-  for (let f = 0; f < frameCount; f++) {
-    await page.evaluate((ms) => window.__seek(ms), (f * 1000) / fps);
-    await page.screenshot({
-      path: path.join(framesDir, `frame${String(f).padStart(5, '0')}.${ext}`),
-      ...(ext === 'jpeg' ? { type: 'jpeg', quality: 94 } : {}),
-    });
-    if (f % 60 === 0) console.log(`   frame ${f}/${frameCount}`);
+    log(`🎞  ${(totalMs / 1000).toFixed(1)} s · ${frameCount} frames à ${fps} fps`);
+    for (let f = 0; f < frameCount; f++) {
+      await page.evaluate((ms) => window.__seek(ms), (f * 1000) / fps);
+      await page.screenshot({
+        path: path.join(framesDir, `frame${String(f).padStart(5, '0')}.${ext}`),
+        ...(ext === 'jpeg' ? { type: 'jpeg', quality: 94 } : {}),
+      });
+      if (f % 60 === 0 && f) log(`   frames ${f}/${frameCount}…`);
+    }
+    await browser.close();
+    fs.unlinkSync(tmpHtml);
+
+    // 4) Assemblage ffmpeg (mp4 H.264 si possible, sinon webm).
+    const outVideo = `${base}.${h264 ? 'mp4' : 'webm'}`;
+    const encode = h264
+      ? ['-c:v', 'libx264', '-preset', 'medium', '-crf', '18',
+         '-pix_fmt', 'yuv420p', '-movflags', '+faststart']
+      : ['-c:v', 'libvpx', '-b:v', '4M', '-pix_fmt', 'yuv420p', '-auto-alt-ref', '0'];
+    log(`🎬 Encodage ${h264 ? 'MP4 H.264' : 'WebM (VP8)'}…`);
+    if (image2) {
+      execFileSync(bin, ['-y', '-framerate', String(fps),
+        '-i', path.join(framesDir, `frame%05d.${ext}`), ...encode, outVideo],
+        { stdio: 'ignore' });
+    } else {
+      const frames = fs.readdirSync(framesDir).sort()
+        .map((f) => fs.readFileSync(path.join(framesDir, f)));
+      const r = spawnSync(bin, ['-y', '-f', 'image2pipe', '-framerate', String(fps),
+        '-c:v', 'mjpeg', '-i', 'pipe:0', ...encode, outVideo],
+        { input: Buffer.concat(frames), maxBuffer: 1 << 30, stdio: ['pipe', 'ignore', 'ignore'] });
+      if (r.status !== 0) throw new Error('ffmpeg a échoué (code ' + r.status + ')');
+    }
+
+    if (!opts.keepFrames) fs.rmSync(framesDir, { recursive: true, force: true });
+    log('✅ Terminé.');
+    return {
+      video: outVideo, isMp4: !!h264,
+      captionIg: capIgPath, captionTt: capTtPath,
+      contentPath: `${base}-contenu.json`, content, base,
+    };
+  } catch (e) {
+    try { await browser.close(); } catch (_) {}
+    throw e;
   }
-  await browser.close();
-  fs.unlinkSync(tmpHtml);
-
-  // 4) Assemblage ffmpeg (mp4 H.264 si possible, sinon webm).
-  const outVideo = `${base}.${h264 ? 'mp4' : 'webm'}`;
-  const encode = h264
-    ? ['-c:v', 'libx264', '-preset', 'medium', '-crf', '18',
-       '-pix_fmt', 'yuv420p', '-movflags', '+faststart']
-    : ['-c:v', 'libvpx', '-b:v', '4M', '-pix_fmt', 'yuv420p', '-auto-alt-ref', '0'];
-  console.log(`🎬 Encodage ${h264 ? 'MP4 H.264' : 'WebM (VP8 — installe ffmpeg/ffmpeg-static pour du MP4)'}…`);
-  if (image2) {
-    execFileSync(bin, ['-y', '-framerate', String(fps),
-      '-i', path.join(framesDir, `frame%05d.${ext}`), ...encode, outVideo],
-      { stdio: 'inherit' });
-  } else {
-    // Build minimal (Playwright) : pas d'image2 ni de PNG → on concatène les
-    // JPEG en flux MJPEG et on pipe.
-    const frames = fs.readdirSync(framesDir).sort()
-      .map((f) => fs.readFileSync(path.join(framesDir, f)));
-    const r = spawnSync(bin, ['-y', '-f', 'image2pipe', '-framerate', String(fps),
-      '-c:v', 'mjpeg', '-i', 'pipe:0', ...encode, outVideo],
-      { input: Buffer.concat(frames), maxBuffer: 1 << 30, stdio: ['pipe', 'inherit', 'inherit'] });
-    if (r.status !== 0) throw new Error('ffmpeg a échoué (code ' + r.status + ')');
-  }
-
-  if (!args['keep-frames']) fs.rmSync(framesDir, { recursive: true, force: true });
-
-  console.log('\n✅ Fini :');
-  console.log('   ' + outVideo);
-  if (content.caption_instagram) console.log(`   ${base}-legende-instagram.txt`);
-  if (content.caption_tiktok) console.log(`   ${base}-legende-tiktok.txt`);
-  console.log(`   ${base}-contenu.json  (éditable → re-rendre avec --json)`);
 }
 
-main().catch((e) => { console.error('Erreur :', e.message || e); process.exit(1); });
+// ── CLI ──────────────────────────────────────────────────────────────────────
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+  let opts = {
+    outDir: args.out || '.',
+    fps: args.fps,
+    keepFrames: !!args['keep-frames'],
+    onLog: (m) => console.log(m),
+  };
+  if (args.json) {
+    opts.content = JSON.parse(fs.readFileSync(args.json, 'utf8'));
+    opts.slug = path.basename(args.json).replace(/^hydra-video-|(-contenu)?\.json$/g, '');
+  } else if (args.sujet) {
+    opts.topic = String(args.sujet);
+    opts.key = args.key || process.env.ANTHROPIC_API_KEY || process.env.HYDRA_ANTHROPIC_KEY;
+  } else {
+    console.error('Usage : node render-video.js --sujet "…"   (ou --json contenu.json)');
+    process.exit(1);
+  }
+  const r = await generateVideo(opts);
+  console.log('\n✅ Fini :');
+  console.log('   ' + r.video);
+  if (r.captionIg) console.log('   ' + r.captionIg);
+  if (r.captionTt) console.log('   ' + r.captionTt);
+  console.log('   ' + r.contentPath + '  (éditable → re-rendre avec --json)');
+}
+
+module.exports = { generateVideo, normalizeContent, callClaude, extractJSON, slugify };
+
+if (require.main === module) {
+  main().catch((e) => { console.error('Erreur :', e.message || e); process.exit(1); });
+}
