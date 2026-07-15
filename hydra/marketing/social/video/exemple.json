@@ -1,15 +1,19 @@
 {
-  "hook": "Et si les *« 8 verres par jour »* n'avaient aucune base scientifique ?",
-  "accent": "red",
-  "seg": 6,
+  "hook": "Boire de l'eau *ne guérit pas* la gueule de bois. Pourquoi ?",
+  "accent": "poison",
+  "seg": 3,
   "lines": [
-    "Ce chiffre vient d'une recommandation *américaine de 1945*.",
-    "Elle incluait déjà l'eau *des aliments*.",
-    "Tout le monde a retenu les verres. Personne la *nuance*.",
-    "Tes vrais besoins dépendent du poids, du climat, de l'effort."
+    "Le vrai coupable, c'est l'*acétaldéhyde* — pas la déshydratation.",
+    "Ton foie transforme l'alcool en acétaldéhyde via l'enzyme *ADH*.",
+    "Ce composé est bien *plus toxique* que l'alcool lui-même.",
+    "Si tu bois trop vite, l'enzyme ALDH est débordée : il *s'accumule*.",
+    "Deuxième mécanisme : l'*inflammation*. Ton corps réagit comme à un poison.",
+    "Une étude a mesuré des cytokines élevées — *IL-6, TNF-alpha* — en gueule de bois.",
+    "C'est cette inflammation qui cause le *brouillard mental*.",
+    "Et la déshydratation ? *Aucune corrélation* nette avec la sévérité."
   ],
-  "answer": "Il n'y a *aucune règle universelle*. Ta barre est personnelle.",
+  "answer": "Le seul vrai remède, c'est *moins de poison* à traiter pour ton foie.",
   "cta_video": "WAITLIST OUVERTE · LIEN EN BIO",
-  "caption_instagram": "Le chiffre le plus célèbre de l'hydratation ne repose sur rien. L'explication complète est dans la vidéo.\n\nHYDRA calcule ta vraie barre — accès en avant-première : lien en bio → https://hydra-landing-sooty.vercel.app\n\n#hydratation #science #eau #sante #mythe",
-  "caption_tiktok": "Le mythe des 8 verres, démonté en 12 secondes. Lien en bio pour la waitlist HYDRA.\n#hydratation #science #eau #apprendresurtiktok"
+  "caption_instagram": "La gueule de bois n'est pas une histoire de déshydratation. L'explication complète (acétaldéhyde, inflammation, les études) est dans la vidéo.\n\nHYDRA transforme ton hydratation en jeu — accès en avant-première : lien en bio → https://hydra-landing-sooty.vercel.app\n\n#gueuledebois #alcool #science #hydratation #sante",
+  "caption_tiktok": "Le vrai mécanisme de la gueule de bois, expliqué en 1 minute. Lien en bio pour la waitlist HYDRA.\n#gueuledebois #science #alcool"
 }

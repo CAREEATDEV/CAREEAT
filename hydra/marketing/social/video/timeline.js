@@ -6,23 +6,27 @@
 //
 // 0 ────────── HOOK_HOLD : le hook occupe l'écran seul (chrome statique)
 // … TRANS : fondu de sortie du hook
-// … LINES_A (2 lignes environ) … DEMO (barre qui draine puis remonte, ~3s)
+// … LINES_A (~ moitié des lignes) … DEMO (barre qui draine puis remonte, ~3s)
 // … LINES_B (lignes restantes) … ANSWER (réponse, punch) … CTA (jusqu'à la fin)
+//
+// Vidéo longue (~60s, format "réel explicatif") : assez de temps pour une
+// explication scientifique aussi détaillée qu'une légende complète (plusieurs
+// mécanismes, études citées), pas juste 3-4 accroches courtes.
 
-const HOOK_HOLD = 2500;
+const HOOK_HOLD = 3000;
 const TRANS = 400;
-const LINES_A_START = HOOK_HOLD + TRANS; // 2900
-const LINES_A_MS = 4000;
-const DEMO_START = LINES_A_START + LINES_A_MS; // 6900
+const LINES_A_START = HOOK_HOLD + TRANS; // 3400
+const LINES_A_MS = 22350;
+const DEMO_START = LINES_A_START + LINES_A_MS; // 25750
 const DEMO_MS = 3000;
-const LINES_B_START = DEMO_START + DEMO_MS; // 9900
-const LINES_B_MS = 4000;
-const ANSWER_GAP = 300;
-const ANSWER_START = LINES_B_START + LINES_B_MS + ANSWER_GAP; // 14200
-const ANSWER_TO_CTA = 1600;
-const CTA_START = ANSWER_START + ANSWER_TO_CTA; // 15800
-const CTA_HOLD = 2700;
-const TOTAL_MS = CTA_START + CTA_HOLD; // 18500
+const LINES_B_START = DEMO_START + DEMO_MS; // 28750
+const LINES_B_MS = 22350;
+const ANSWER_GAP = 400;
+const ANSWER_START = LINES_B_START + LINES_B_MS + ANSWER_GAP; // 51500
+const ANSWER_TO_CTA = 4500;
+const CTA_START = ANSWER_START + ANSWER_TO_CTA; // 56000
+const CTA_HOLD = 4000;
+const TOTAL_MS = CTA_START + CTA_HOLD; // 60000
 
 const LINES_BUDGET_MS = LINES_A_MS + LINES_B_MS; // 8000 : combiné, sans le trou de la démo
 
@@ -34,7 +38,7 @@ function mapLineTime(virtualMs) {
     : LINES_B_START + (virtualMs - LINES_A_MS);
 }
 
-// Répartit n lignes (3 à 5) sur le budget fixe : { start, end }[] en ms.
+// Répartit n lignes (5 à 10) sur le budget fixe : { start, end }[] en ms.
 // Le nombre de lignes ne change JAMAIS la durée totale de la vidéo — seule
 // la vitesse de défilement des lignes s'ajuste.
 function computeLineTimes(n) {

@@ -2,30 +2,34 @@
 
 Clone **vidéo** du générateur d'images : même charte (police, couleurs,
 disposition), même format **1080×1350** (4:5, Instagram — utilisé aussi pour
-TikTok). Sort un **fichier .mp4 prêt à uploader (~18,5 s)**, plus les légendes.
+TikTok). Sort un **fichier .mp4 prêt à uploader (~60 s, format "réel
+explicatif")**, plus les légendes — assez de temps pour une explication
+scientifique aussi détaillée qu'une légende Instagram complète (plusieurs
+mécanismes, études citées).
 
 Structure de chaque vidéo :
 
-1. **0-2,5 s** — le hook (la question/intrigue) pour stopper le scroll.
-2. **Milieu** — l'explication révélée **une ligne à la fois à l'écran**
-   (chaque ligne remplace la précédente, comme un sous-titre) ; au milieu, la
-   **démo produit** : la barre de vie draine (« TU SÈCHES. », vire au rouge)
-   puis **remonte franchement** en vert (« TU REBOIS. ») — le rappel visuel
-   de l'app, ~3 s.
-3. **Fin** — la **réponse** en gros (couleur d'accent), puis CTA **waitlist**
-   + marque HYDRA.
+1. **0-3 s** — le hook (la question/intrigue) pour stopper le scroll.
+2. **Milieu (~45 s)** — l'explication complète révélée **une ligne à la fois
+   à l'écran** (chaque ligne remplace la précédente, comme un sous-titre,
+   7 à 10 lignes) ; au milieu, la **démo produit** : la barre de vie draine
+   (« TU SÈCHES. », vire au rouge) puis **remonte franchement** en vert
+   (« TU REBOIS. ») — le rappel visuel de l'app, ~3 s.
+3. **Fin (~8,5 s)** — la **réponse/synthèse** en gros (couleur d'accent),
+   puis CTA **waitlist** + marque HYDRA.
 
 ## ⚡ Pourquoi c'est rapide (architecture)
 
-Le premier post d'une couleur d'accent donnée prend ~35-40 s (rendu du fond de
-marque). **Tous les posts suivants de la même couleur prennent 2-3 s** : le
-fond (barre de vie qui draine/remonte + habillage HYDRA) est une **vidéo déjà
-prête** — les 4 couleurs (`vert`/`rouge`/`ambre`/`poison`) sont déjà fournies
-dans `backgrounds/`, tu n'as même pas ce premier temps d'attente. Seul le
-texte (hook/lignes/réponse/CTA écrits par Claude) est **incrusté en sous-titres**
+Le premier post d'une couleur d'accent donnée prend ~2 min (rendu du fond de
+marque, plus long maintenant que les vidéos font 60 s). **Tous les posts
+suivants de la même couleur prennent quelques secondes** : le fond (barre de
+vie qui draine/remonte + habillage HYDRA) est une **vidéo déjà prête** — les
+4 couleurs (`vert`/`rouge`/`ambre`/`poison`) sont déjà fournies dans
+`backgrounds/`, tu n'as même pas ce premier temps d'attente. Seul le texte
+(hook/lignes/réponse/CTA écrits par Claude) est **incrusté en sous-titres**
 sur ce fond — pas de nouveau rendu Chromium à chaque post.
 
-C'est ce qui permet aussi la durée plus longue (~18,5 s au lieu de ~13 s) :
+C'est ce qui permet aussi la durée plus longue (~60 s au lieu de ~13-18 s) :
 allonger le fond ne coûte rien puisqu'il n'est fait qu'une fois.
 
 ⚠️ Ça ne change rien au coût de l'appel à l'API Claude (recherche web +
@@ -97,8 +101,8 @@ moment de poster, c'est meilleur pour le reach.
 node render-video.js --json hydra-video-le-mythe-…-contenu.json
 ```
 
-Champs du JSON : `hook`, `accent` (`green|amber|red|poison`), `lines` (3-5
-lignes courtes), `answer`, `cta_video`, `caption_instagram`,
+Champs du JSON : `hook`, `accent` (`green|amber|red|poison`), `lines` (7-10
+lignes), `answer`, `cta_video`, `caption_instagram`,
 `caption_tiktok`. Les `*astérisques*` colorent un mot en accent. (Le champ
 `seg` est encore accepté mais n'a plus d'effet visuel : la démo de la barre
 de vie est désormais la même pour tous les posts d'une couleur donnée,
@@ -115,7 +119,7 @@ puisqu'elle fait partie du fond pré-enregistré.)
 Les 4 fonds (`backgrounds/bg-<accent>.mp4`) sont déjà fournis dans le repo.
 Si tu modifies `template-background.html` (couleurs, police, disposition),
 supprime le(s) fichier(s) concerné(s) dans `backgrounds/` — ils seront
-automatiquement régénérés (~35-40 s) au prochain post de cette couleur.
+automatiquement régénérés (~2 min) au prochain post de cette couleur.
 
 ## Comment ça marche (technique)
 
@@ -124,10 +128,10 @@ automatiquement régénérés (~35-40 s) au prochain post de cette couleur.
   dynamique**. Rendu une fois par couleur (Chromium, capture frame par
   frame déterministe — `currentTime` forcé sur toutes les animations, comme
   avant) puis encodé en H.264 et mis en cache dans `backgrounds/`.
-- `timeline.js` : le minutage **fixe** (~18,5 s), seule source de vérité,
+- `timeline.js` : le minutage **fixe** (~60 s), seule source de vérité,
   partagé entre le fond et les sous-titres — c'est lui qui calibre
   automatiquement la vitesse de défilement des lignes sur la durée du fond,
-  quel que soit leur nombre (3 à 5).
+  quel que soit leur nombre (7 à 10).
 - `ass.js` : construit le fichier de sous-titres (**ASS/libass**) — hook,
   lignes (une à la fois, à la façon d'un sous-titre), réponse, CTA — avec
   emphase colorée (`*mot*`), fondus et un léger effet "punch" sur la réponse.

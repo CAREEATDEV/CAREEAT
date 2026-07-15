@@ -117,24 +117,24 @@ function resolveFfmpeg() {
 // ── appel API Claude (même logique éprouvée que post-studio.html) ────────────
 const SYSTEM_PROMPT = `Tu es le copywriter scientifique de HYDRA, une app d'hydratation au ton BRUTAL, MINIMALISTE, DIRECT — jamais "wellness", jamais d'émojis dégoulinants, aucune émotion cucul. Marque vidéoludique (barre de vie qui se vide, l'alcool est un "poison").
 
-MISSION : à partir d'un simple sujet, tu écris le contenu d'une VIDÉO verticale courte (~18 s) pour TikTok/Instagram. Structure de la vidéo : (1) une carte "hook" 2,5 s, (2) une explication révélée ligne par ligne À L'ÉCRAN (le nombre de lignes s'adapte automatiquement à la durée fixe de la vidéo), (3) la réponse finale, puis un CTA waitlist.
+MISSION : à partir d'un simple sujet, tu écris le contenu d'une VIDÉO verticale longue (~60 s, format "réel explicatif") pour TikTok/Instagram — assez de temps pour une explication scientifique AUSSI DÉTAILLÉE qu'une légende complète (plusieurs mécanismes distincts, études citées avec leur nom quand tu en trouves une). Structure : (1) une carte "hook" 3 s, (2) l'explication révélée À L'ÉCRAN, une ligne à la fois (le nombre de lignes s'adapte automatiquement à la durée fixe de la vidéo), (3) la réponse/synthèse finale, puis un CTA waitlist.
 
 MÉTHODE :
-1. Utilise l'outil web_search pour VÉRIFIER les faits et chiffres (mécanismes physiologiques, études, indices comme le Beverage Hydration Index, échelle d'Armstrong, etc.). Ne cite jamais une statistique précise sans l'avoir vérifiée. Si un chiffre exact reste incertain, reste qualitatif plutôt que d'inventer.
-2. Trie : garde uniquement l'info solide, utile, surprenante.
+1. Utilise l'outil web_search pour VÉRIFIER les faits, chiffres et mécanismes (physiologie, études nommées — auteur/année/revue si tu en trouves une, indices comme le Beverage Hydration Index, échelle d'Armstrong, etc.). Ne cite jamais une statistique précise sans l'avoir vérifiée. Si un chiffre exact reste incertain, reste qualitatif plutôt que d'inventer.
+2. Trie et STRUCTURE en plusieurs mécanismes/angles distincts (comme un mini-article) plutôt qu'un seul argument répété — vise la même densité d'information qu'une légende Instagram complète, mais découpée en lignes courtes à l'écran.
 
 MÉCANIQUE (rétention) :
 - Le HOOK pose une question ouverte ou une intrigue — jamais la réponse.
-- Les LIGNES font monter la tension : chacune est courte, autonome, lisible en ~1 s. Ce texte est INCRUSTÉ dans la vidéo (pas en description).
-- La RÉPONSE est le paiement de l'attente : une phrase, cash.
+- Les LIGNES déroulent l'explication complète, mécanisme après mécanisme : chacune est une phrase autonome, lisible en ~4-5 s. Ce texte est INCRUSTÉ dans la vidéo (pas en description).
+- La RÉPONSE/SYNTHÈSE est le paiement de l'attente : une phrase de conclusion, cash.
 
 TU RENDS UNIQUEMENT un objet JSON valide (aucun texte autour, aucune balise markdown), avec EXACTEMENT ces clés :
 {
   "hook":  "l'accroche (8 à 14 mots, français). Entoure LE mot/chiffre choc d'astérisques *comme ça*. Une question/intrigue, PAS la réponse.",
   "accent":"une seule valeur parmi: green, red, amber, poison. green=conseil/bonne nouvelle · red=mythe à casser/chiffre choc/alerte · amber=nuance · poison=tout sujet lié à l'alcool.",
-  "seg":   "entier de 2 à 7 : segments allumés sur la barre de vie au départ. Sujet alarmant/mythe = bas (2-3), conseil positif = haut (5-6).",
-  "lines": ["3 à 5 lignes courtes (6 à 12 mots chacune) qui expliquent le mécanisme scientifique, dans l'ordre logique, tension croissante. Astérisques *autorisées* pour 1 mot clé par ligne max. La dernière ligne prépare la réponse sans la donner."],
-  "answer":"LA réponse finale, une seule phrase percutante (5 à 12 mots). Astérisques autorisées sur le mot clé.",
+  "seg":   "(informatif seulement, sans effet visuel) entier de 2 à 7.",
+  "lines": ["7 à 10 lignes (8 à 16 mots chacune) qui déroulent l'explication scientifique COMPLÈTE : plusieurs mécanismes/études distincts, dans l'ordre logique, comme les paragraphes d'un article condensés en phrases courtes. Astérisques *autorisées* pour 1 mot/chiffre clé par ligne max. La dernière ligne prépare la réponse sans la donner."],
+  "answer":"LA réponse/synthèse finale, une seule phrase percutante (6 à 14 mots). Astérisques autorisées sur le mot clé.",
   "cta_video":"CTA court en MAJUSCULES pour l'écran final (ex: WAITLIST OUVERTE · LIEN EN BIO).",
   "caption_instagram":"légende Instagram COURTE (2-3 phrases max — le contenu est déjà dans la vidéo) : une relance + accès en avant-première via le lien en bio → https://hydra-landing-sooty.vercel.app + 4-6 hashtags en dernière ligne.",
   "caption_tiktok":"légende TikTok très courte (1-2 phrases punchy) : relance + « lien en bio » + 3-5 hashtags en dernière ligne."
@@ -175,7 +175,7 @@ async function callClaude(topic, key) {
       },
       body: JSON.stringify({
         model: 'claude-opus-4-8',
-        max_tokens: 4000,
+        max_tokens: 5000,
         tools: [{ type: 'web_search_20260209', name: 'web_search' }],
         system: SYSTEM_PROMPT,
         messages,
@@ -199,15 +199,15 @@ async function callClaude(topic, key) {
 
 function normalizeContent(c) {
   const ACCENTS = ['green', 'amber', 'red', 'poison'];
-  if (!c.hook || !c.answer || !Array.isArray(c.lines) || c.lines.length < 3) {
-    throw new Error('Contenu incomplet (hook/lines[3+]/answer requis) : ' + JSON.stringify(c));
+  if (!c.hook || !c.answer || !Array.isArray(c.lines) || c.lines.length < 4) {
+    throw new Error('Contenu incomplet (hook/lines[4+]/answer requis) : ' + JSON.stringify(c));
   }
   return {
     hook: String(c.hook),
     accent: ACCENTS.includes(String(c.accent).toLowerCase())
       ? String(c.accent).toLowerCase() : 'green',
     seg: Math.max(2, Math.min(7, parseInt(c.seg, 10) || 6)),
-    lines: c.lines.slice(0, 5).map(String),
+    lines: c.lines.slice(0, 10).map(String),
     answer: String(c.answer),
     cta_video: String(c.cta_video || 'WAITLIST OUVERTE · LIEN EN BIO').toUpperCase(),
     caption_instagram: String(c.caption_instagram || ''),
@@ -309,7 +309,7 @@ async function ensureBackground(accent, { fontsDir, bin, log, bgDir }) {
   const outPath = path.join(bgDir, `bg-${accent}.mp4`);
   if (fs.existsSync(outPath)) return outPath;
 
-  log(`🎨 Première utilisation de la couleur « ${accent} » : préparation du fond (une fois, ~30-45 s)…`);
+  log(`🎨 Première utilisation de la couleur « ${accent} » : préparation du fond (une fois, ~2 min)…`);
   const toFileUrl = (p) => pathToFileURL(p).href;
   let html = fs.readFileSync(path.join(__dirname, 'template-background.html'), 'utf8');
   const tokens = {
