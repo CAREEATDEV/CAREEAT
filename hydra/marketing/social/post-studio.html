@@ -57,6 +57,11 @@
     text-transform:uppercase;}
   .gen:active{transform:translateY(1px);}
   .gen:disabled{opacity:.5;cursor:progress;}
+  .folderbtn{width:100%;background:transparent;border:1px solid var(--line);color:var(--text);
+    border-radius:10px;padding:12px;font-family:'Chakra';font-size:13px;letter-spacing:1px;
+    cursor:pointer;text-transform:uppercase;}
+  .folderbtn.on{border-color:var(--green);color:var(--green);}
+  .folderbtn:active{transform:translateY(1px);}
   .aistatus{font-size:11px;color:var(--dim);line-height:1.45;min-height:15px;}
   .aistatus.err{color:var(--red);}
   .aistatus.ok{color:var(--green);}
@@ -106,6 +111,15 @@
       <div class="hint">Claude fait la recherche scientifique puis génère tout :
         accroche, couleur, appel à l'action, image Instagram, image TikTok et les
         deux légendes.</div>
+    </div>
+
+    <div>
+      <label>Où enregistrer les fichiers</label>
+      <button class="folderbtn" id="pickdir">📁 Choisir le dossier Drive…</button>
+      <div class="hint" id="dirhint">Optionnel : choisis ton dossier <b>« post hydra »</b>
+        (dans Google&nbsp;Drive) une seule fois. <b>Seuls</b> les fichiers du studio y
+        seront enregistrés — tes autres téléchargements ne bougent pas. Sinon, ils
+        partent dans ton dossier Téléchargements habituel.</div>
     </div>
 
     <button class="gen" id="generate">✦ Générer le post</button>
@@ -300,31 +314,56 @@
       .replace(/^-+|-+$/g, '').slice(0, 40).replace(/-+$/, '');
     return t || 'post';
   }
-  function saveBlob(blob, name){
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  // Dossier d'enregistrement choisi par l'utilisateur (File System Access API).
+  // Si connecté, on écrit les fichiers DIRECTEMENT dedans (ex. le dossier Google
+  // Drive) — sans toucher au dossier de téléchargement global du navigateur.
+  // Défini plus bas ; ici on ne fait que le consulter.
+  async function folderReady(){
+    try { return dirHandle
+      && (await dirHandle.queryPermission({ mode:'readwrite' })) === 'granted'; }
+    catch(_){ return false; }
+  }
+  async function saveBlob(blob, name){
+    if(await folderReady()){
+      try {
+        const fh = await dirHandle.getFileHandle(name, { create:true });
+        const w = await fh.createWritable();
+        await w.write(blob); await w.close();
+        return true; // écrit dans le dossier Drive
+      } catch(_){ /* repli sur le téléchargement classique */ }
+    }
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = name;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    return false;
   }
-  function downloadCanvas(key){
-    const fmt = FORMATS[key];
+  function canvasBlob(key){
+    return new Promise(res =>
+      document.getElementById(FORMATS[key].canvas).toBlob(res, 'image/png'));
+  }
+  async function downloadCanvas(key){
     const plat = key === 'ig' ? 'instagram' : 'tiktok';
-    document.getElementById(fmt.canvas).toBlob(
-      blob => saveBlob(blob, `hydra-${slug()}-${plat}.png`), 'image/png');
+    return saveBlob(await canvasBlob(key), `hydra-${slug()}-${plat}.png`);
   }
   function downloadCaption(id, plat){
     const txt = document.getElementById(id).value || '';
-    saveBlob(new Blob([txt], { type:'text/plain' }), `hydra-${slug()}-legende-${plat}.txt`);
+    return saveBlob(new Blob([txt], { type:'text/plain' }), `hydra-${slug()}-legende-${plat}.txt`);
   }
-  const sleep = ms => new Promise(r => setTimeout(r, ms));
-  // Enchaîne les 4 téléchargements (petit délai entre chaque : plus fiable,
-  // le navigateur ne demande qu'une fois « autoriser plusieurs téléchargements »).
+  // Enchaîne les 4 enregistrements. Vers un dossier : instantané, aucun délai.
+  // En téléchargement classique : petit délai (le navigateur ne demande qu'une
+  // fois « autoriser plusieurs téléchargements »).
   async function downloadAll(){
-    downloadCanvas('ig');        await sleep(500);
-    downloadCanvas('tiktok');    await sleep(500);
-    downloadCaption('cap-ig', 'instagram'); await sleep(500);
-    downloadCaption('cap-tt', 'tiktok');
+    const toFolder = await folderReady();
+    const gap = toFolder ? 0 : 450;
+    await downloadCanvas('ig');            await sleep(gap);
+    await downloadCanvas('tiktok');        await sleep(gap);
+    await downloadCaption('cap-ig', 'instagram'); await sleep(gap);
+    await downloadCaption('cap-tt', 'tiktok');
+    return toFolder;
   }
   document.getElementById('dl-ig').addEventListener('click', () => downloadCanvas('ig'));
   document.getElementById('dl-tt').addEventListener('click', () => downloadCanvas('tiktok'));
@@ -339,6 +378,72 @@
   document.querySelectorAll('[data-dl]').forEach(btn =>
     btn.addEventListener('click', () =>
       downloadCaption(btn.dataset.dl, btn.dataset.plat)));
+
+  // ---- Dossier d'enregistrement (File System Access API) ----
+  let dirHandle = null;
+  const pickBtn = document.getElementById('pickdir');
+  const dirHint = document.getElementById('dirhint');
+  const FS_OK = 'showDirectoryPicker' in window;
+
+  // Petite base IndexedDB pour retenir le dossier choisi entre deux sessions.
+  function idb(){
+    return new Promise((res, rej) => {
+      const r = indexedDB.open('hydra-studio', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('kv');
+      r.onsuccess = () => res(r.result);
+      r.onerror   = () => rej(r.error);
+    });
+  }
+  async function idbSet(k, v){
+    try { const db = await idb(); const tx = db.transaction('kv', 'readwrite');
+      tx.objectStore('kv').put(v, k);
+      await new Promise(r => { tx.oncomplete = r; tx.onerror = r; }); } catch(_){}
+  }
+  async function idbGet(k){
+    try { const db = await idb(); const tx = db.transaction('kv', 'readonly');
+      const rq = tx.objectStore('kv').get(k);
+      return await new Promise(r => { rq.onsuccess = () => r(rq.result); rq.onerror = () => r(null); });
+    } catch(_){ return null; }
+  }
+
+  function setDirUI(ready){
+    if(dirHandle){
+      pickBtn.textContent = '📁 ' + dirHandle.name + (ready ? ' ✓' : ' — reconnecter');
+      pickBtn.classList.toggle('on', !!ready);
+    } else {
+      pickBtn.textContent = '📁 Choisir le dossier Drive…';
+      pickBtn.classList.remove('on');
+    }
+  }
+
+  if(!FS_OK){
+    pickBtn.style.display = 'none';
+    dirHint.innerHTML = 'Les fichiers partent dans ton dossier Téléchargements habituel ' +
+      '(ce navigateur ne permet pas de choisir un dossier dédié — sur ordinateur, ' +
+      'utilise Chrome ou Edge pour cette option).';
+  } else {
+    pickBtn.addEventListener('click', async () => {
+      try {
+        const h = await window.showDirectoryPicker({ mode:'readwrite', id:'hydra-posts' });
+        if((await h.requestPermission({ mode:'readwrite' })) === 'granted'){
+          dirHandle = h; await idbSet('dir', h); setDirUI(true);
+        }
+      } catch(err){
+        if(err && err.name !== 'AbortError')
+          dirHint.textContent = 'Impossible de choisir un dossier ici — les fichiers ' +
+            'partiront dans ton dossier Téléchargements.';
+      }
+    });
+    // Restaure le dossier au chargement. Selon le navigateur, un simple clic sur
+    // le bouton peut être nécessaire pour ré-autoriser l'écriture (sécurité).
+    idbGet('dir').then(async h => {
+      if(!h) return;
+      dirHandle = h;
+      let granted = false;
+      try { granted = (await h.queryPermission({ mode:'readwrite' })) === 'granted'; } catch(_){}
+      setDirUI(granted);
+    });
+  }
 
   // ---- ajustements manuels (optionnels) ----
   document.getElementById('hook').addEventListener('input', e => {
@@ -479,11 +584,13 @@ TU RENDS UNIQUEMENT un objet JSON valide (aucun texte autour, aucune balise mark
       document.getElementById('cta').value  = state.cta;
       document.getElementById('results').hidden = false;
       drawAll();
-      setStatus('✓ Généré — téléchargement des 4 fichiers en cours. Vérifie les chiffres avant de poster.', 'ok');
-      // Envoi direct : les 2 images + 2 légendes partent tout seuls dans le
-      // dossier Téléchargements (bouton « Tout télécharger » en secours si le
-      // navigateur bloque les téléchargements automatiques).
-      await downloadAll();
+      // Envoi direct : les 2 images + 2 légendes partent tout seuls — dans le
+      // dossier Drive s'il est connecté, sinon dans le dossier Téléchargements
+      // (bouton « Tout télécharger » en secours).
+      const toFolder = await downloadAll();
+      setStatus(toFolder
+        ? `✓ Généré — 4 fichiers enregistrés dans « ${dirHandle.name} ». Vérifie les chiffres avant de poster.`
+        : '✓ Généré — 4 fichiers téléchargés. Vérifie les chiffres avant de poster.', 'ok');
     } catch(err){
       setStatus('Erreur : ' + (err.message || err), 'err');
     } finally {
