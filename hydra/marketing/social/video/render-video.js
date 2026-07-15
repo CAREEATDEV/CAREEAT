@@ -27,8 +27,8 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 const { execFileSync, spawnSync } = require('child_process');
 const timeline = require('./timeline');
-const { buildAss, buildAssVoice } = require('./ass');
-const { buildVoicePlan } = require('./voice-timeline');
+const { buildAss } = require('./ass');
+const recharge = require('./recharge-timeline');
 const { synthesizeWithTimestamps } = require('./elevenlabs');
 
 // ── petits utilitaires ───────────────────────────────────────────────────────
@@ -137,6 +137,7 @@ TU RENDS UNIQUEMENT un objet JSON valide (aucun texte autour, aucune balise mark
   "seg":   "(informatif seulement, sans effet visuel) entier de 2 à 7.",
   "lines": ["7 à 10 lignes (8 à 16 mots chacune) qui déroulent l'explication scientifique COMPLÈTE : plusieurs mécanismes/études distincts, dans l'ordre logique, comme les paragraphes d'un article condensés en phrases courtes. Astérisques *autorisées* pour 1 mot/chiffre clé par ligne max. La dernière ligne prépare la réponse sans la donner."],
   "answer":"LA réponse/synthèse finale, une seule phrase percutante (6 à 14 mots). Astérisques autorisées sur le mot clé.",
+  "recharge_line":"phrase COURTE (8 à 14 mots) qui fait explicitement référence à l'app/l'hydratation AU MOMENT où la barre de vie se recharge à l'écran — ex: \\"Attention, on est en train de sécher. On recharge, on va boire de l'eau.\\". Elle s'insère AU MILIEU de la narration (après le hook et la moitié des lignes) : elle doit sonner NATUREL dans le flux, comme une respiration/transition, pas plaquée. Garde le hook + la première moitié des lignes assez ramassés pour qu'à voix haute cette phrase arrive autour de 30 s.",
   "cta_video":"CTA court en MAJUSCULES pour l'écran final (ex: WAITLIST OUVERTE · LIEN EN BIO).",
   "caption_instagram":"légende Instagram COURTE (2-3 phrases max — le contenu est déjà dans la vidéo) : une relance + accès en avant-première via le lien en bio → https://hydra-landing-sooty.vercel.app + 4-6 hashtags en dernière ligne.",
   "caption_tiktok":"légende TikTok très courte (1-2 phrases punchy) : relance + « lien en bio » + 3-5 hashtags en dernière ligne."
@@ -211,6 +212,12 @@ function normalizeContent(c) {
     seg: Math.max(2, Math.min(7, parseInt(c.seg, 10) || 6)),
     lines: c.lines.slice(0, 10).map(String),
     answer: String(c.answer),
+    // Phrase dite pile au moment où la barre se recharge (t=30s) en mode voix
+    // off. Repli pour les anciens contenus.json générés avant ce champ.
+    recharge_line: String(
+      c.recharge_line ||
+        "Là, on est en train de sécher — on recharge, on boit de l'eau."
+    ),
     cta_video: String(c.cta_video || 'WAITLIST OUVERTE · LIEN EN BIO').toUpperCase(),
     caption_instagram: String(c.caption_instagram || ''),
     caption_tiktok: String(c.caption_tiktok || ''),
@@ -254,14 +261,17 @@ async function generateVideo(opts) {
 
   const fontsDir = path.join(__dirname, '..', '..', '..', 'assets', 'fonts');
   const { bin, h264, ass } = resolveFfmpeg();
-  if (!ass) {
+  if (!h264) {
+    throw new Error('Ton ffmpeg ne sait pas encoder en H.264 (libx264 manquant).');
+  }
+  // libass n'est requis QUE pour le mode silencieux (sous-titres incrustés).
+  // Le mode voix off calé sur la recharge n'incruste aucun sous-titre.
+  const voiceMode = !!(opts.elevenLabsKey && opts.voiceId);
+  if (!voiceMode && !ass) {
     throw new Error(
       'Ton ffmpeg ne supporte pas les sous-titres incrustés (libass). ' +
       'Réinstalle : npm install ffmpeg-static@latest (ou installe un ffmpeg ' +
       'compilé avec --enable-libass).');
-  }
-  if (!h264) {
-    throw new Error('Ton ffmpeg ne sait pas encoder en H.264 (libx264 manquant).');
   }
 
   const bgDir = path.join(__dirname, 'backgrounds');
@@ -285,14 +295,20 @@ async function generateVideo(opts) {
     const assPath = `${base}.ass`;
     fs.writeFileSync(assPath, buildAss(content), 'utf8');
     log('🎬 Incrustation des sous-titres…');
+    // Chemins RELATIFS (via cwd = outDir) dans le filtre `ass` : sur Windows,
+    // un chemin absolu contient le ":" du lecteur (C:\) qui casse le parseur de
+    // filtergraph de ffmpeg même échappé. En relatif, plus aucun ":" à gérer.
+    const rel = (p) => path.relative(outDir, p).replace(/\\/g, '/') || '.';
+    const assRel = rel(assPath);
+    const fontsRel = rel(fontsDir);
     try {
       execFileSync(bin, [
         '-y', '-i', bgPath,
-        '-vf', `ass=${escapeFfmpegPath(assPath)}:fontsdir=${escapeFfmpegPath(fontsDir)}`,
+        '-vf', `ass=${assRel}:fontsdir=${fontsRel}`,
         '-c:v', 'libx264', '-preset', 'medium', '-crf', '18',
         '-pix_fmt', 'yuv420p', '-movflags', '+faststart',
         outVideo,
-      ], { stdio: 'pipe' });
+      ], { stdio: 'pipe', cwd: outDir });
     } catch (e) {
       throw new Error('ffmpeg (incrustation) a échoué : ' + (e.stderr || e.message));
     }
@@ -305,12 +321,6 @@ async function generateVideo(opts) {
     captionIg: capIgPath, captionTt: capTtPath,
     contentPath: `${base}-contenu.json`, content, base,
   };
-}
-
-// Échappe un chemin pour l'intérieur d'un argument de filtre ffmpeg
-// (":" et "'" y sont significatifs) — nécessaire sur Windows (lecteur "C:\").
-function escapeFfmpegPath(p) {
-  return p.replace(/\\/g, '/').replace(/:/g, '\\:').replace(/'/g, "\\'");
 }
 
 // Rend (une fois par couleur) et met en cache le fond de marque — segbar
@@ -421,42 +431,148 @@ async function ensureStillBackground(accent, { fontsDir, bin, log, bgDir }) {
   return outPath;
 }
 
-// Mode voix off : synthétise la narration (ElevenLabs, avec l'alignement
-// caractère par caractère), cale les sous-titres sur l'audio réel, et
-// assemble le tout sur un fond fixe (pas de Chromium par post — juste une
-// image tenue à l'écran + le mux audio + l'incrustation des sous-titres,
-// en un seul passage ffmpeg).
-//
-// Simplification volontaire : pas de démo de barre de vie dans ce mode —
-// l'ajouter proprement demanderait d'insérer un vrai silence dans l'audio
-// pour caler une pause vidéo dessus (un chantier à part, pas fait ici).
-async function renderVoiceVideo(content, opts) {
-  const { base, outVideo, fontsDir, bin, log, bgDir, apiKey, voiceId, modelId, ttsImpl } = opts;
+// Fenêtre d'animation démo (drain → refill) seule, capturée depuis
+// template-background.html en injectant DEMO_START=0 : c'est le SEUL bout de
+// vidéo animé du mode voix off. Rendue une fois par couleur, mise en cache.
+async function ensureDemo(accent, { fontsDir, bin, log, bgDir }) {
+  fs.mkdirSync(bgDir, { recursive: true });
+  const outPath = path.join(bgDir, `demo-${accent}.mp4`);
+  if (fs.existsSync(outPath)) return outPath;
 
-  const plan = buildVoicePlan(content);
-  log('🎙️  Synthèse de la voix off (ElevenLabs)…');
-  const synth = ttsImpl || synthesizeWithTimestamps;
-  const { audioBuffer, starts, ends } = await synth({
-    text: plan.narration, apiKey, voiceId, modelId,
+  log(`🎨 Préparation de la démo « ${accent} » (une fois)…`);
+  const framesDir = await captureBackgroundFrames(accent, {
+    fontsDir, bgDir, tag: 'demo',
+    demoStart: 0, demoMs: recharge.DEMO_MS, totalMs: recharge.DEMO_MS,
+    fromMs: 0, toMs: recharge.DEMO_MS, fps: 30,
   });
-  const { times, ctaStart, totalMs } = plan.withAlignment(starts, ends);
+  execFileSync(bin, [
+    '-y', '-framerate', '30',
+    '-i', path.join(framesDir, 'frame%05d.png'),
+    '-c:v', 'libx264', '-preset', 'medium', '-crf', '16',
+    '-pix_fmt', 'yuv420p', '-movflags', '+faststart', outPath,
+  ], { stdio: 'ignore' });
+  fs.rmSync(framesDir, { recursive: true, force: true });
+  return outPath;
+}
 
-  const audioPath = `${base}.narration.mp3`;
-  fs.writeFileSync(audioPath, audioBuffer);
+// Image fixe juste APRÈS la démo : barre pleine et VERTE (la démo se termine
+// toujours en vert quelle que soit la couleur ; seuls l'eyebrow/la flèche CTA
+// gardent la couleur d'accent). Un seul screenshot au seek DEMO_MS.
+async function ensureStillPost(accent, { fontsDir, bin, log, bgDir }) {
+  fs.mkdirSync(bgDir, { recursive: true });
+  const outPath = path.join(bgDir, `still-post-${accent}.png`);
+  if (fs.existsSync(outPath)) return outPath;
 
-  const stillPath = await ensureStillBackground(content.accent, { fontsDir, bin, log, bgDir });
+  const framesDir = await captureBackgroundFrames(accent, {
+    fontsDir, bgDir, tag: 'stillpost',
+    demoStart: 0, demoMs: recharge.DEMO_MS, totalMs: recharge.DEMO_MS,
+    fromMs: recharge.DEMO_MS, toMs: recharge.DEMO_MS, fps: 30, single: true,
+  });
+  fs.copyFileSync(path.join(framesDir, 'frame00000.png'), outPath);
+  fs.rmSync(framesDir, { recursive: true, force: true });
+  return outPath;
+}
 
-  const assPath = `${base}.ass`;
-  fs.writeFileSync(assPath, buildAssVoice(content, { times, ctaStart, totalMs }), 'utf8');
+// Rend template-background.html (Chromium) et capture, frame par frame en
+// forçant currentTime (déterministe), la fenêtre [fromMs, toMs] à `fps`.
+// `single` : une seule frame (au seek fromMs). Retourne le dossier de frames.
+async function captureBackgroundFrames(accent, opts) {
+  const { fontsDir, bgDir, tag, demoStart, demoMs, totalMs, fromMs, toMs, fps, single } = opts;
+  const toFileUrl = (p) => pathToFileURL(p).href;
+  let html = fs.readFileSync(path.join(__dirname, 'template-background.html'), 'utf8');
+  const tokens = {
+    __FONT_DISPLAY__: toFileUrl(path.join(fontsDir, 'ChakraPetch-Bold.ttf')),
+    __FONT_LABEL__: toFileUrl(path.join(fontsDir, 'ChakraPetch-SemiBold.ttf')),
+    __FONT_MONO__: toFileUrl(path.join(fontsDir, 'IBMPlexMono-Regular.ttf')),
+    __FONT_MONOBOLD__: toFileUrl(path.join(fontsDir, 'IBMPlexMono-Bold.ttf')),
+    __BG_ACCENT__: accent,
+    __BG_DEMO_START__: demoStart,
+    __BG_DEMO_MS__: demoMs,
+    __BG_TOTAL_MS__: totalMs,
+  };
+  for (const [token, value] of Object.entries(tokens)) {
+    html = replaceAll(html, token, String(value));
+  }
+  const tmpHtml = path.join(bgDir, `${tag}-${accent}.tmp.html`);
+  fs.writeFileSync(tmpHtml, html);
 
-  log(`🎬 Assemblage (voix + sous-titres, ${(totalMs / 1000).toFixed(1)} s)…`);
+  const framesDir = path.join(bgDir, `${tag}-${accent}.frames`);
+  const { chromium } = resolvePlaywright();
+  const browser = await chromium.launch({ executablePath: chromiumExecutablePath() });
   try {
-    execFileSync(bin, [
-      '-y',
-      '-loop', '1', '-framerate', '30', '-t', String(totalMs / 1000), '-i', stillPath,
+    const page = await browser.newPage({ viewport: { width: 1080, height: 1350 } });
+    await page.goto(toFileUrl(tmpHtml));
+    await page.evaluate(() => document.fonts.ready);
+
+    fs.rmSync(framesDir, { recursive: true, force: true });
+    fs.mkdirSync(framesDir, { recursive: true });
+
+    if (single) {
+      await page.evaluate((ms) => window.__seek(ms), fromMs);
+      await page.screenshot({ path: path.join(framesDir, 'frame00000.png') });
+    } else {
+      const frameCount = Math.ceil(((toMs - fromMs) / 1000) * fps);
+      for (let f = 0; f < frameCount; f++) {
+        await page.evaluate((ms) => window.__seek(ms), fromMs + (f * 1000) / fps);
+        await page.screenshot({ path: path.join(framesDir, `frame${String(f).padStart(5, '0')}.png`) });
+      }
+    }
+    await browser.close();
+  } catch (e) {
+    try { await browser.close(); } catch (_) {}
+    throw e;
+  } finally {
+    fs.rmSync(tmpHtml, { force: true });
+  }
+  return framesDir;
+}
+
+// Assemble l'audio final : découpe l'audio brut au départ NATUREL de
+// recharge_line, insère `padMs` de silence entre les deux moitiés → recharge_line
+// démarre pile à 30 s. Sortie AAC (.m4a). Si padMs<=0, ré-encode tel quel.
+function buildPaddedAudio({ bin, rawAudioPath, audioPath, splitMs, padMs }) {
+  if (padMs <= 0) {
+    execFileSync(bin, ['-y', '-i', rawAudioPath,
+      '-c:a', 'aac', '-b:a', '160k', audioPath], { stdio: 'pipe' });
+    return;
+  }
+  const splitSec = (splitMs / 1000).toFixed(6);
+  const padSec = (padMs / 1000).toFixed(6);
+  const fmt = 'aformat=sample_rates=44100:channel_layouts=mono';
+  const fc =
+    `[0:a]atrim=end=${splitSec},asetpts=PTS-STARTPTS,${fmt}[a0];` +
+    `[0:a]atrim=start=${splitSec},asetpts=PTS-STARTPTS,${fmt}[a1];` +
+    `[1:a]atrim=end=${padSec},asetpts=PTS-STARTPTS,${fmt}[sil];` +
+    `[a0][sil][a1]concat=n=3:v=0:a=1[out]`;
+  execFileSync(bin, ['-y',
+    '-i', rawAudioPath,
+    '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=mono',
+    '-filter_complex', fc, '-map', '[out]',
+    '-c:a', 'aac', '-b:a', '160k', audioPath], { stdio: 'pipe' });
+}
+
+// Assemble le fond vidéo (still → demo → still-post, homogénéisés puis
+// concaténés) et le mux avec l'audio final, en UN SEUL appel ffmpeg. Aucun
+// sous-titre incrusté (c'est tout l'intérêt : TikTok s'en charge après coup).
+// Durée vidéo = preMs + DEMO_MS + restMs (= totalMs) ; l'audio est plus court
+// de CTA_TAIL_HOLD → petit silence de fin, pas de coupe brutale.
+function assembleVoiceoverVideo({ bin, still, demo, stillPost, audioPath, outVideo, preMs, restMs }) {
+  const preSec = (preMs / 1000).toFixed(6);
+  const restSec = (Math.max(0, restMs) / 1000).toFixed(6);
+  const norm = (label) =>
+    `fps=30,scale=1080:1350:force_original_aspect_ratio=decrease,` +
+    `pad=1080:1350:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p[${label}]`;
+  const fc =
+    `[0:v]${norm('v0')};[1:v]${norm('v1')};[2:v]${norm('v2')};` +
+    `[v0][v1][v2]concat=n=3:v=1:a=0[v]`;
+  try {
+    execFileSync(bin, ['-y',
+      '-loop', '1', '-t', preSec, '-i', still,
+      '-i', demo,
+      '-loop', '1', '-t', restSec, '-i', stillPost,
       '-i', audioPath,
-      '-vf', `ass=${escapeFfmpegPath(assPath)}:fontsdir=${escapeFfmpegPath(fontsDir)}`,
-      '-map', '0:v:0', '-map', '1:a:0',
+      '-filter_complex', fc,
+      '-map', '[v]', '-map', '3:a:0',
       '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-pix_fmt', 'yuv420p',
       '-c:a', 'aac', '-b:a', '160k',
       '-movflags', '+faststart',
@@ -464,8 +580,57 @@ async function renderVoiceVideo(content, opts) {
     ], { stdio: 'pipe' });
   } catch (e) {
     throw new Error('ffmpeg (assemblage voix off) a échoué : ' + (e.stderr || e.message));
+  }
+}
+
+// Mode voix off (gratuit, sans sous-titre incrusté) :
+//   1) Claude a écrit une recharge_line dite pile quand la barre se recharge.
+//   2) ElevenLabs synthétise toute la narration + l'alignement par caractère.
+//   3) On insère du silence avant recharge_line pour la caler à t=30 000 ms.
+//   4) On assemble still(0→30s) + demo(~3,5s) + still-post(reste) + l'audio.
+// Aucun sous-titre : l'utilisateur poste sur TikTok, active les sous-titres
+// auto (recentrés à la main), télécharge, puis repost sur Instagram.
+async function renderVoiceVideo(content, opts) {
+  const { base, outVideo, fontsDir, bin, log, bgDir, apiKey, voiceId, modelId, ttsImpl } = opts;
+
+  // 1) Narration (hook → moitié lignes → recharge → reste → answer).
+  const plan = recharge.buildRechargePlan(content);
+  log('🎙️  Synthèse de la voix off (ElevenLabs)…');
+  const synth = ttsImpl || synthesizeWithTimestamps;
+  const { audioBuffer, starts, ends } = await synth({
+    text: plan.narration, apiKey, voiceId, modelId,
+  });
+  const al = plan.withAlignment(starts, ends);
+  if (al.lateMs > 0) {
+    log(`⚠️  recharge_line arrive à ${(al.naturalRechargeStartMs / 1000).toFixed(1)} s ` +
+      `(> 30 s) : pas de silence ajouté, désync possible de ${Math.round(al.lateMs)} ms. ` +
+      `Raccourcis le hook ou les premières lignes.`);
+  }
+
+  // 2) Audio final : recharge_line calée pile à 30 s.
+  const rawAudioPath = `${base}.raw.mp3`;
+  fs.writeFileSync(rawAudioPath, audioBuffer);
+  const audioPath = `${base}.narration.m4a`;
+  buildPaddedAudio({
+    bin, rawAudioPath, audioPath,
+    splitMs: al.naturalRechargeStartMs, padMs: al.padMs,
+  });
+
+  // 3) Les 3 morceaux de fond de cette couleur (générés une fois, en cache).
+  const still = await ensureStillBackground(content.accent, { fontsDir, bin, log, bgDir });
+  const demo = await ensureDemo(content.accent, { fontsDir, bin, log, bgDir });
+  const stillPost = await ensureStillPost(content.accent, { fontsDir, bin, log, bgDir });
+
+  // 4) Assemblage final (fond concaténé + mux audio), durée = totalMs.
+  const restMs = al.totalMs - recharge.RECHARGE_AT_MS - recharge.DEMO_MS;
+  log(`🎬 Assemblage (voix + démo calée à 30 s, ${(al.totalMs / 1000).toFixed(1)} s)…`);
+  try {
+    assembleVoiceoverVideo({
+      bin, still, demo, stillPost, audioPath, outVideo,
+      preMs: recharge.RECHARGE_AT_MS, restMs,
+    });
   } finally {
-    fs.rmSync(assPath, { force: true });
+    fs.rmSync(rawAudioPath, { force: true });
     fs.rmSync(audioPath, { force: true });
   }
 }
@@ -473,6 +638,28 @@ async function renderVoiceVideo(content, opts) {
 // ── CLI ──────────────────────────────────────────────────────────────────────
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+
+  // Pré-génère (et met en cache) tous les fonds : silencieux (bg-<accent>.mp4)
+  // + voix off (still-/demo-/still-post-<accent>). À lancer après une refonte
+  // de template-background.html pour recommiter les fonds à jour.
+  //   node render-video.js --prebuild            (les 4 modes voix off)
+  //   node render-video.js --prebuild --silent   (inclut aussi bg-*.mp4, ~2min/couleur)
+  if (args.prebuild) {
+    const { bin } = resolveFfmpeg();
+    const fontsDir = path.join(__dirname, '..', '..', '..', 'assets', 'fonts');
+    const bgDir = path.join(__dirname, 'backgrounds');
+    const log = (m) => console.log(m);
+    for (const accent of ['green', 'amber', 'red', 'poison']) {
+      await ensureStillBackground(accent, { fontsDir, bin, log, bgDir });
+      await ensureDemo(accent, { fontsDir, bin, log, bgDir });
+      await ensureStillPost(accent, { fontsDir, bin, log, bgDir });
+      if (args.silent) await ensureBackground(accent, { fontsDir, bin, log, bgDir });
+      console.log(`✓ ${accent}`);
+    }
+    console.log('\n✅ Fonds prêts dans backgrounds/.');
+    return;
+  }
+
   let opts = {
     outDir: args.out || '.',
     onLog: (m) => console.log(m),

@@ -18,28 +18,42 @@ Structure de chaque vidéo :
 3. **Fin (~8,5 s)** — la **réponse/synthèse** en gros (couleur d'accent),
    puis CTA **waitlist** + marque HYDRA.
 
-## 🎙️ Voix off (optionnel, ElevenLabs)
+## 🎙️ Voix off calée sur la recharge (optionnel, ElevenLabs) — le mode gratuit
 
 Dans le studio, ouvre **« 🎙️ Voix off — ElevenLabs (optionnel) »**, colle ta
 **clé API ElevenLabs** et un **Voice ID** (sur elevenlabs.io : *Voix* → choisis
-une voix française → copie le Voice ID). Si ces deux champs sont remplis :
+une voix française → copie le Voice ID). Si ces deux champs sont remplis, c'est
+ce pipeline qui tourne :
 
-- Le texte (hook/lignes/réponse) est **lu à voix haute**.
-- Les sous-titres se calent **mot à mot sur l'audio réel** (alignement
-  caractère par caractère renvoyé par ElevenLabs) — plus précis que le
-  minutage fixe utilisé en mode muet.
-- La durée totale suit celle de la voix (variable selon le texte), plus un
-  petit temps de lecture pour le CTA à la fin.
+1. Claude écrit le script **et** une `recharge_line` — une phrase courte qui
+   fait référence à l'hydratation « au moment où la barre se recharge ».
+2. ElevenLabs lit toute la narration **à voix haute** et renvoie le timing
+   exact de chaque mot (alignement caractère par caractère).
+3. On insère juste ce qu'il faut de **silence avant la `recharge_line`** pour
+   que son début tombe **pile à t = 30 s** — l'instant précis où la barre de vie
+   se recharge à l'écran (drain → refill, ~3,5 s). Voix et image parlent alors
+   du même moment.
+4. **Aucun sous-titre n'est incrusté.** La vidéo sort avec la voix off + la
+   démo calée, c'est tout.
 
-Simplification volontaire : **pas de démo de barre de vie** dans ce mode (le
-fond reste fixe pendant toute la narration) — l'ajouter proprement demanderait
-d'insérer un vrai silence dans l'audio pour caler une pause dessus, un
-chantier séparé, pas fait ici.
+### Comment poster (important)
 
-Si les deux champs sont vides, rien ne change : vidéo muette, comme avant.
-Clé et Voice ID sont stockés **uniquement dans ce navigateur**, jamais dans
-le repo. Modèle utilisé : `eleven_multilingual_v2` (voix neutre et cohérente,
-adaptée au ton HYDRA — pas le style "très expressif" d'Eleven v3).
+- Poste d'abord la vidéo sur **TikTok**, active ses **sous-titres automatiques**
+  et **recentre-les à la main**.
+- **Télécharge la vidéo depuis TikTok** (elle contient alors les sous-titres
+  gravés), puis **repost-la telle quelle sur Instagram**.
+- C'est gratuit : on ne paie que les appels API Claude + ElevenLabs, jamais un
+  rendu de sous-titres de notre côté.
+
+Si les deux champs sont vides, rien ne change : **vidéo muette avec sous-titres
+incrustés** (minutage fixe), comme avant. Clé et Voice ID sont stockés
+**uniquement dans ce navigateur**, jamais dans le repo. Modèle utilisé :
+`eleven_multilingual_v2` (voix neutre et cohérente, adaptée au ton HYDRA).
+
+> Les 4 morceaux de fond du mode voix off (`backgrounds/still-<accent>.png`,
+> `backgrounds/demo-<accent>.mp4`, `backgrounds/still-post-<accent>.png`) sont
+> rendus une seule fois par couleur puis mis en cache — les vidéos suivantes de
+> la même couleur ne relancent aucun Chromium.
 
 ## ⚡ Pourquoi c'est rapide (architecture)
 
@@ -125,7 +139,8 @@ node render-video.js --json hydra-video-le-mythe-…-contenu.json
 ```
 
 Champs du JSON : `hook`, `accent` (`green|amber|red|poison`), `lines` (7-10
-lignes), `answer`, `cta_video`, `caption_instagram`,
+lignes), `answer`, `recharge_line` (phrase dite pile quand la barre se recharge,
+mode voix off), `cta_video`, `caption_instagram`,
 `caption_tiktok`. Les `*astérisques*` colorent un mot en accent. (Le champ
 `seg` est encore accepté mais n'a plus d'effet visuel : la démo de la barre
 de vie est désormais la même pour tous les posts d'une couleur donnée,
