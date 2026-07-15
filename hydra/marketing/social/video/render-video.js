@@ -1,8 +1,15 @@
 #!/usr/bin/env node
-// HYDRA — générateur de vidéos verticales (1080x1920) pour TikTok/Instagram.
-// Clone vidéo du pipeline image (template-hook-post.html) : même charte, mais
-// la carte s'anime — hook 2s, révélation ligne par ligne, démo de la barre de
-// vie (draine puis remonte), réponse finale + CTA waitlist.
+// HYDRA — générateur de vidéos verticales (1080x1350, format Instagram 4:5)
+// pour TikTok/Instagram. Même charte que le pipeline image.
+//
+// Architecture (rapide, peu coûteuse) :
+//   1) Une vidéo de FOND par couleur d'accent (vert/rouge/ambre/poison) est
+//      rendue UNE SEULE FOIS (Chromium, template-background.html) puis mise
+//      en cache dans backgrounds/ — jamais régénérée ensuite.
+//   2) Chaque post ne fait qu'INCRUSTER des sous-titres (hook/lignes/réponse/
+//      CTA, via ffmpeg+libass) sur ce fond déjà prêt : pas de Chromium par
+//      post, quelques secondes au lieu de ~40s. Le minutage (timeline.js) est
+//      FIXE (~18,5s) ; le nombre de lignes de Claude s'y calibre tout seul.
 //
 // One-click depuis un sujet (appelle l'API Claude, comme le studio image) :
 //   ANTHROPIC_API_KEY=sk-ant-…  node render-video.js --sujet "Le mythe des 8 verres"
@@ -10,17 +17,17 @@
 // Ou re-rendre un contenu déjà généré (édité à la main si besoin), sans API :
 //   node render-video.js --json hydra-video-le-mythe-…-contenu.json
 //
-// Options : --out <dossier>  --fps <30>  --keep-frames  --key <clé API>
+// Options : --out <dossier>  --keep-frames  --key <clé API>
 //
-// Pipeline : template HTML/CSS (keyframes) → seek frame par frame dans
-// Chromium (déterministe, aucune frame perdue) → assemblage ffmpeg.
-// Sortie : .mp4 H.264 (si ffmpeg le permet — ffmpeg-static ou ffmpeg système),
-// sinon .webm (ffmpeg embarqué de Playwright). + 2 légendes .txt + contenu .json.
+// Sortie : .mp4 H.264 + 2 légendes .txt + contenu .json.
 
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { pathToFileURL } = require('url');
 const { execFileSync, spawnSync } = require('child_process');
+const timeline = require('./timeline');
+const { buildAss } = require('./ass');
 
 // ── petits utilitaires ───────────────────────────────────────────────────────
 function parseArgs(argv) {
@@ -82,7 +89,7 @@ function resolveFfmpeg() {
   }
   for (const bin of candidates) {
     if (bin && tryBin(bin)) {
-      let h264 = false, image2 = false;
+      let h264 = false, image2 = false, ass = false;
       try {
         h264 = execFileSync(bin, ['-encoders'], { stdio: 'pipe' })
           .toString().includes('libx264');
@@ -93,7 +100,13 @@ function resolveFfmpeg() {
         image2 = execFileSync(bin, ['-formats'], { stdio: 'pipe' })
           .toString().split('\n').some((l) => /^\s*D\S*\s+image2\s/.test(l));
       } catch (_) {}
-      return { bin, h264, image2 };
+      try {
+        // Sous-titres incrustés (libass) : nécessaire pour l'incrustation
+        // rapide des captions sur le fond pré-enregistré.
+        ass = execFileSync(bin, ['-filters'], { stdio: 'pipe' })
+          .toString().split('\n').some((l) => /^\s*\S*\s+ass\s/.test(l));
+      } catch (_) {}
+      return { bin, h264, image2, ass };
     }
   }
   throw new Error(
@@ -104,7 +117,7 @@ function resolveFfmpeg() {
 // ── appel API Claude (même logique éprouvée que post-studio.html) ────────────
 const SYSTEM_PROMPT = `Tu es le copywriter scientifique de HYDRA, une app d'hydratation au ton BRUTAL, MINIMALISTE, DIRECT — jamais "wellness", jamais d'émojis dégoulinants, aucune émotion cucul. Marque vidéoludique (barre de vie qui se vide, l'alcool est un "poison").
 
-MISSION : à partir d'un simple sujet, tu écris le contenu d'une VIDÉO verticale courte (8-14 s) pour TikTok/Instagram. Structure de la vidéo : (1) une carte "hook" 2 s, (2) une explication révélée ligne par ligne À L'ÉCRAN, (3) la réponse finale, puis un CTA waitlist.
+MISSION : à partir d'un simple sujet, tu écris le contenu d'une VIDÉO verticale courte (~18 s) pour TikTok/Instagram. Structure de la vidéo : (1) une carte "hook" 2,5 s, (2) une explication révélée ligne par ligne À L'ÉCRAN (le nombre de lignes s'adapte automatiquement à la durée fixe de la vidéo), (3) la réponse finale, puis un CTA waitlist.
 
 MÉTHODE :
 1. Utilise l'outil web_search pour VÉRIFIER les faits et chiffres (mécanismes physiologiques, études, indices comme le Beverage Hydration Index, échelle d'Armstrong, etc.). Ne cite jamais une statistique précise sans l'avoir vérifiée. Si un chiffre exact reste incertain, reste qualitatif plutôt que d'inventer.
@@ -203,14 +216,13 @@ function normalizeContent(c) {
 }
 
 // ── moteur réutilisable (CLI + studio web l'appellent tous les deux) ─────────
-// opts : { content?, topic?, key?, outDir, fps?, keepFrames?, slug?, onLog? }
+// opts : { content?, topic?, key?, outDir, slug?, onLog? }
 //  - content : objet contenu déjà prêt (re-rendu / test) ; sinon
 //  - topic + key : génère le contenu via Claude.
 // Retourne { video, isMp4, captionIg, captionTt, contentPath, content, base }.
 async function generateVideo(opts) {
   const log = opts.onLog || (() => {});
   const outDir = path.resolve(opts.outDir || '.');
-  const fps = Math.max(10, Math.min(60, parseInt(opts.fps, 10) || 30));
   fs.mkdirSync(outDir, { recursive: true });
 
   // 1) Contenu.
@@ -236,85 +248,120 @@ async function generateVideo(opts) {
   if (capIgPath) fs.writeFileSync(capIgPath, content.caption_instagram);
   if (capTtPath) fs.writeFileSync(capTtPath, content.caption_tiktok);
 
-  // 2) Template + injections (polices du repo, contenu).
   const fontsDir = path.join(__dirname, '..', '..', '..', 'assets', 'fonts');
-  const toFileUrl = (p) => 'file://' + p;
-  let html = fs.readFileSync(path.join(__dirname, 'template-video.html'), 'utf8');
+  const { bin, h264, ass } = resolveFfmpeg();
+  if (!ass) {
+    throw new Error(
+      'Ton ffmpeg ne supporte pas les sous-titres incrustés (libass). ' +
+      'Réinstalle : npm install ffmpeg-static@latest (ou installe un ffmpeg ' +
+      'compilé avec --enable-libass).');
+  }
+  if (!h264) {
+    throw new Error('Ton ffmpeg ne sait pas encoder en H.264 (libx264 manquant).');
+  }
+
+  // 2) Fond de marque : rendu UNE FOIS par couleur d'accent, mis en cache.
+  const bgPath = await ensureBackground(content.accent, {
+    fontsDir, bin, log,
+    bgDir: path.join(__dirname, 'backgrounds'),
+  });
+
+  // 3) Sous-titres (hook/lignes/réponse/CTA), calibrés sur le minutage FIXE
+  //    du fond (timeline.js) — incrustés directement via ffmpeg (rapide,
+  //    aucun Chromium pour cette étape).
+  const assPath = `${base}.ass`;
+  fs.writeFileSync(assPath, buildAss(content), 'utf8');
+
+  const outVideo = `${base}.mp4`;
+  log('🎬 Incrustation des sous-titres…');
+  try {
+    execFileSync(bin, [
+      '-y', '-i', bgPath,
+      '-vf', `ass=${escapeFfmpegPath(assPath)}:fontsdir=${escapeFfmpegPath(fontsDir)}`,
+      '-c:v', 'libx264', '-preset', 'medium', '-crf', '18',
+      '-pix_fmt', 'yuv420p', '-movflags', '+faststart',
+      outVideo,
+    ], { stdio: 'pipe' });
+  } catch (e) {
+    throw new Error('ffmpeg (incrustation) a échoué : ' + (e.stderr || e.message));
+  }
+  fs.unlinkSync(assPath);
+
+  log('✅ Terminé.');
+  return {
+    video: outVideo, isMp4: true,
+    captionIg: capIgPath, captionTt: capTtPath,
+    contentPath: `${base}-contenu.json`, content, base,
+  };
+}
+
+// Échappe un chemin pour l'intérieur d'un argument de filtre ffmpeg
+// (":" et "'" y sont significatifs) — nécessaire sur Windows (lecteur "C:\").
+function escapeFfmpegPath(p) {
+  return p.replace(/\\/g, '/').replace(/:/g, '\\:').replace(/'/g, "\\'");
+}
+
+// Rend (une fois par couleur) et met en cache le fond de marque — segbar
+// (démo drain/remonte), eyebrow, ligne CTA, brand. Aucun texte dynamique :
+// c'est le même fichier vidéo pour tous les posts de cette couleur.
+async function ensureBackground(accent, { fontsDir, bin, log, bgDir }) {
+  fs.mkdirSync(bgDir, { recursive: true });
+  const outPath = path.join(bgDir, `bg-${accent}.mp4`);
+  if (fs.existsSync(outPath)) return outPath;
+
+  log(`🎨 Première utilisation de la couleur « ${accent} » : préparation du fond (une fois, ~30-45 s)…`);
+  const toFileUrl = (p) => pathToFileURL(p).href;
+  let html = fs.readFileSync(path.join(__dirname, 'template-background.html'), 'utf8');
   const tokens = {
     __FONT_DISPLAY__: toFileUrl(path.join(fontsDir, 'ChakraPetch-Bold.ttf')),
     __FONT_LABEL__: toFileUrl(path.join(fontsDir, 'ChakraPetch-SemiBold.ttf')),
     __FONT_MONO__: toFileUrl(path.join(fontsDir, 'IBMPlexMono-Regular.ttf')),
     __FONT_MONOBOLD__: toFileUrl(path.join(fontsDir, 'IBMPlexMono-Bold.ttf')),
-    __CONTENT_JSON__: JSON.stringify(content).replace(/</g, '\\u003c'),
+    __BG_ACCENT__: accent,
+    __BG_DEMO_START__: timeline.DEMO_START,
+    __BG_DEMO_MS__: timeline.DEMO_MS,
+    __BG_TOTAL_MS__: timeline.TOTAL_MS,
   };
   for (const [token, value] of Object.entries(tokens)) {
     html = replaceAll(html, token, String(value));
   }
-  const tmpHtml = `${base}.tmp.html`;
+  const tmpHtml = path.join(bgDir, `bg-${accent}.tmp.html`);
   fs.writeFileSync(tmpHtml, html);
 
-  // 3) Capture frame par frame (déterministe : on pilote currentTime).
-  //    ffmpeg est résolu AVANT la capture : son build décide du format de
-  //    frame (PNG lossless si démuxeur image2, sinon JPEG pipé).
-  const { bin, h264, image2 } = resolveFfmpeg();
-  const ext = image2 ? 'png' : 'jpeg';
-
+  const fps = 30;
   const { chromium } = resolvePlaywright();
   const browser = await chromium.launch({ executablePath: chromiumExecutablePath() });
+  const framesDir = path.join(bgDir, `bg-${accent}.frames`);
   try {
-    const page = await browser.newPage({ viewport: { width: 1080, height: 1920 } });
+    const page = await browser.newPage({ viewport: { width: 1080, height: 1350 } });
     await page.goto(toFileUrl(tmpHtml));
     await page.evaluate(() => document.fonts.ready);
-
     const totalMs = await page.evaluate(() => window.__TOTAL_MS__);
     const frameCount = Math.ceil((totalMs / 1000) * fps);
-    const framesDir = `${base}.frames`;
+
     fs.rmSync(framesDir, { recursive: true, force: true });
     fs.mkdirSync(framesDir, { recursive: true });
-
-    log(`🎞  ${(totalMs / 1000).toFixed(1)} s · ${frameCount} frames à ${fps} fps`);
     for (let f = 0; f < frameCount; f++) {
       await page.evaluate((ms) => window.__seek(ms), (f * 1000) / fps);
-      await page.screenshot({
-        path: path.join(framesDir, `frame${String(f).padStart(5, '0')}.${ext}`),
-        ...(ext === 'jpeg' ? { type: 'jpeg', quality: 94 } : {}),
-      });
-      if (f % 60 === 0 && f) log(`   frames ${f}/${frameCount}…`);
+      await page.screenshot({ path: path.join(framesDir, `frame${String(f).padStart(5, '0')}.png`) });
     }
     await browser.close();
-    fs.unlinkSync(tmpHtml);
-
-    // 4) Assemblage ffmpeg (mp4 H.264 si possible, sinon webm).
-    const outVideo = `${base}.${h264 ? 'mp4' : 'webm'}`;
-    const encode = h264
-      ? ['-c:v', 'libx264', '-preset', 'medium', '-crf', '18',
-         '-pix_fmt', 'yuv420p', '-movflags', '+faststart']
-      : ['-c:v', 'libvpx', '-b:v', '4M', '-pix_fmt', 'yuv420p', '-auto-alt-ref', '0'];
-    log(`🎬 Encodage ${h264 ? 'MP4 H.264' : 'WebM (VP8)'}…`);
-    if (image2) {
-      execFileSync(bin, ['-y', '-framerate', String(fps),
-        '-i', path.join(framesDir, `frame%05d.${ext}`), ...encode, outVideo],
-        { stdio: 'ignore' });
-    } else {
-      const frames = fs.readdirSync(framesDir).sort()
-        .map((f) => fs.readFileSync(path.join(framesDir, f)));
-      const r = spawnSync(bin, ['-y', '-f', 'image2pipe', '-framerate', String(fps),
-        '-c:v', 'mjpeg', '-i', 'pipe:0', ...encode, outVideo],
-        { input: Buffer.concat(frames), maxBuffer: 1 << 30, stdio: ['pipe', 'ignore', 'ignore'] });
-      if (r.status !== 0) throw new Error('ffmpeg a échoué (code ' + r.status + ')');
-    }
-
-    if (!opts.keepFrames) fs.rmSync(framesDir, { recursive: true, force: true });
-    log('✅ Terminé.');
-    return {
-      video: outVideo, isMp4: !!h264,
-      captionIg: capIgPath, captionTt: capTtPath,
-      contentPath: `${base}-contenu.json`, content, base,
-    };
   } catch (e) {
     try { await browser.close(); } catch (_) {}
     throw e;
+  } finally {
+    fs.rmSync(tmpHtml, { force: true });
   }
+
+  execFileSync(bin, [
+    '-y', '-framerate', String(fps),
+    '-i', path.join(framesDir, 'frame%05d.png'),
+    '-c:v', 'libx264', '-preset', 'medium', '-crf', '16',
+    '-pix_fmt', 'yuv420p', outPath,
+  ], { stdio: 'ignore' });
+  fs.rmSync(framesDir, { recursive: true, force: true });
+
+  return outPath;
 }
 
 // ── CLI ──────────────────────────────────────────────────────────────────────
@@ -322,8 +369,6 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   let opts = {
     outDir: args.out || '.',
-    fps: args.fps,
-    keepFrames: !!args['keep-frames'],
     onLog: (m) => console.log(m),
   };
   if (args.json) {

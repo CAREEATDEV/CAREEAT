@@ -1,7 +1,10 @@
 node_modules/
 out/
-*.mp4
-*.webm
 *.frames/
 hydra-video-*-contenu.json
 hydra-video-*-legende-*.txt
+*.mp4
+*.webm
+# Les fonds pré-enregistrés SONT versionnés (petits, ~80 Ko/couleur,
+# déterministes) — évite à chacun d'attendre le premier rendu par couleur.
+!backgrounds/*.mp4

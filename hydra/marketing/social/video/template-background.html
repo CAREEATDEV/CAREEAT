@@ -1,0 +1,119 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  /* Habillage HYDRA seul (pas de texte dynamique) — capturé UNE FOIS par
+     couleur d'accent, réutilisé pour tous les posts de cette couleur. Le
+     hook/les lignes/la réponse/le CTA sont incrustés ensuite en sous-titres
+     (ass.js) directement sur le fichier vidéo produit ici. */
+  @font-face{font-family:'ChakraSemi';src:url('__FONT_LABEL__') format('truetype');font-weight:600;}
+  @font-face{font-family:'Plex';src:url('__FONT_MONO__') format('truetype');font-weight:400;}
+  @font-face{font-family:'PlexBold';src:url('__FONT_MONOBOLD__') format('truetype');font-weight:700;}
+  @font-face{font-family:'Chakra';src:url('__FONT_DISPLAY__') format('truetype');font-weight:700;}
+
+  :root{
+    --bg:#000000; --green:#3EE07A; --amber:#FFB020; --red:#FF3B4A; --poison:#B44CFF;
+    --empty:#1C2026; --text:#EDEFF2; --dim:#7C828C; --accent:#3EE07A;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{width:1080px;height:1350px;background:var(--bg);overflow:hidden;}
+  body{font-family:'Plex',monospace;display:flex;flex-direction:column;padding:0 84px;}
+
+  .barzone{position:relative;margin-top:92px;}
+  .segbar{display:flex;gap:10px;}
+  .seg{flex:1;height:14px;border-radius:4px;background:var(--empty);}
+  .barcap{
+    position:absolute;top:calc(100% + 16px);left:0;
+    font-family:'PlexBold';font-size:23px;letter-spacing:3px;opacity:0;
+  }
+  #capdry{color:var(--red);}
+  #capwet{color:var(--green);}
+
+  .eyebrow{
+    font-family:'ChakraSemi';color:var(--dim);font-size:26px;
+    letter-spacing:6px;text-transform:uppercase;margin-top:44px;
+  }
+  .eyebrow b{color:var(--accent);}
+
+  .spacer{flex:1;}
+
+  .ctarow{
+    display:flex;align-items:center;gap:16px;
+    border-top:2px solid var(--empty);padding-top:36px;
+  }
+  .ctarow .arrow{font-family:'PlexBold';color:var(--accent);font-size:34px;}
+  .brand{
+    font-family:'Chakra';color:var(--dim);font-size:22px;
+    letter-spacing:8px;margin-top:28px;padding-bottom:66px;
+  }
+  .brand b{color:var(--text);}
+
+  @keyframes panic{from{background:var(--accent);}to{background:var(--red);}}
+  @keyframes segoff{from{background:var(--red);}to{background:var(--empty);}}
+  @keyframes segfill{from{background:var(--empty);}45%{background:#B8FFD4;}to{background:var(--green);}}
+  @keyframes segrevive{from{background:var(--red);}45%{background:#B8FFD4;}to{background:var(--green);}}
+  @keyframes fadein{to{opacity:1;}}
+  @keyframes fadeout{to{opacity:0;}}
+</style>
+</head>
+<body>
+  <div class="barzone">
+    <div class="segbar" id="segbar"></div>
+    <div class="barcap" id="capdry">TU SÈCHES.</div>
+    <div class="barcap" id="capwet">TU REBOIS.</div>
+  </div>
+
+  <div class="eyebrow">HYDRA <b>·</b> SCIENCE</div>
+
+  <div class="spacer"></div>
+
+  <div class="ctarow"><div class="arrow">&darr;</div></div>
+  <div class="brand">HYDR<b>A</b></div>
+
+<script>
+  // Constantes de minutage injectées depuis timeline.js (source unique de
+  // vérité, partagée avec la génération des sous-titres). Noms de jetons
+  // distincts de window.__TOTAL_MS__ ci-dessous (un remplacement global sur
+  // un nom identique casserait cette ligne — déjà vu, ne pas reproduire).
+  const DEMO_START = __BG_DEMO_START__, DEMO_MS = __BG_DEMO_MS__, TOTAL_MS = __BG_TOTAL_MS__;
+  const ACCENTS = { green:'#3EE07A', amber:'#FFB020', red:'#FF3B4A', poison:'#B44CFF' };
+  document.documentElement.style.setProperty('--accent', ACCENTS['__BG_ACCENT__'] || ACCENTS.green);
+
+  // Démo canonique : 6/8 segments allumés → draine à 2 → remonte à 8.
+  const SEG0 = 6;
+  const drainStart = DEMO_START + 300;
+  const refillStart = DEMO_START + 1900;
+  const bar = document.getElementById('segbar');
+  for (let i = 0; i < 8; i++) {
+    const s = document.createElement('div');
+    s.className = 'seg';
+    const anims = [];
+    if (i < SEG0) {
+      s.style.background = 'var(--accent)';
+      anims.push(`panic 300ms linear ${DEMO_START}ms forwards`);
+      if (i === 0) {
+        anims.push(`segrevive 260ms linear ${refillStart}ms forwards`);
+      } else {
+        const k = SEG0 - 1 - i;
+        anims.push(`segoff 180ms linear ${drainStart + k * 140}ms forwards`);
+        anims.push(`segfill 260ms linear ${refillStart + i * 85}ms forwards`);
+      }
+    } else {
+      anims.push(`segfill 260ms linear ${refillStart + i * 85}ms forwards`);
+    }
+    s.style.animation = anims.join(',');
+    bar.appendChild(s);
+  }
+  document.getElementById('capdry').style.animation =
+    `fadein 200ms ease ${DEMO_START}ms forwards, fadeout 160ms ease ${refillStart - 60}ms forwards`;
+  document.getElementById('capwet').style.animation =
+    `fadein 160ms ease ${refillStart}ms forwards, fadeout 220ms ease ${DEMO_START + 2800}ms forwards`;
+
+  window.__TOTAL_MS__ = TOTAL_MS;
+  window.__seek = (ms) => {
+    document.getAnimations().forEach(a => { a.pause(); a.currentTime = ms; });
+  };
+</script>
+</body>
+</html>
