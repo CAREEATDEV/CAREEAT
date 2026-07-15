@@ -109,8 +109,8 @@
       <label>Sujet du post (la seule chose à écrire)</label>
       <textarea id="topic" placeholder="Ex. : Et si les « 8 verres par jour » n'avaient aucune base scientifique ?"></textarea>
       <div class="hint">Claude fait la recherche scientifique puis génère tout :
-        accroche, couleur, appel à l'action, image Instagram, image TikTok et les
-        deux légendes.</div>
+        accroche, couleur, appel à l'action, l'image (format 4:5, pour Instagram
+        comme pour TikTok) et les deux légendes.</div>
     </div>
 
     <div>
@@ -129,14 +129,13 @@
       <div class="divider"></div>
 
       <button class="dl" id="dl-all" style="margin-top:14px;padding:16px">
-        ⬇ Tout télécharger (2 images + 2 légendes)</button>
-      <div class="hint">Le téléchargement des 4 fichiers se lance aussi tout seul
+        ⬇ Tout enregistrer (image + 2 légendes)</button>
+      <div class="hint">L'enregistrement des 3 fichiers se lance aussi tout seul
         après la génération. Si le navigateur demande « Autoriser plusieurs
         téléchargements », accepte une fois.</div>
 
-      <div class="row" style="margin-top:12px">
-        <button class="copybtn" id="dl-ig" style="margin-top:0">⬇ Image Instagram</button>
-        <button class="copybtn" id="dl-tt" style="margin-top:0">⬇ Image TikTok</button>
+      <div style="margin-top:12px">
+        <button class="copybtn" id="dl-img" style="margin-top:0;width:100%">⬇ Image seule</button>
       </div>
 
       <div style="margin-top:16px">
@@ -176,19 +175,16 @@
 
   <div class="stage">
     <div class="prev">
-      <span class="ptag">INSTAGRAM · 4:5</span>
+      <span class="ptag">FORMAT 4:5 · INSTAGRAM + TIKTOK</span>
       <canvas id="cv-ig"></canvas>
-    </div>
-    <div class="prev">
-      <span class="ptag">TIKTOK · 9:16</span>
-      <canvas id="cv-tt"></canvas>
     </div>
   </div>
 
 <script>
+  // Un seul format : Instagram 4:5. Il sert aussi pour TikTok (le 4:5 passe
+  // très bien en feed comme en Reels/vidéo).
   const FORMATS = {
-    ig:     { w:1080, h:1350, hook:76, canvas:'cv-ig' },
-    tiktok: { w:1080, h:1920, hook:84, canvas:'cv-tt' },
+    ig: { w:1080, h:1350, hook:76, canvas:'cv-ig' },
   };
   const ACCENTS = { green:'#3EE07A', red:'#FF3B4A', amber:'#FFB020', poison:'#B44CFF' };
   const COL = { bg:'#000000', empty:'#1C2026', text:'#EDEFF2', dim:'#7C828C' };
@@ -302,10 +298,10 @@
 
     ctx.letterSpacing = "0px";
   }
-  function drawAll(){ drawOne('ig'); drawOne('tiktok'); }
+  function drawAll(){ drawOne('ig'); }
 
   // ---- downloads / copy ----
-  // Les 4 fichiers d'un même post partagent un slug tiré du sujet, pour
+  // Les fichiers d'un même post partagent un slug tiré du sujet, pour
   // qu'ils restent groupés dans le dossier Téléchargements / le Drive.
   function slug(){
     const t = (topicEl.value || 'post')
@@ -345,28 +341,25 @@
     return new Promise(res =>
       document.getElementById(FORMATS[key].canvas).toBlob(res, 'image/png'));
   }
-  async function downloadCanvas(key){
-    const plat = key === 'ig' ? 'instagram' : 'tiktok';
-    return saveBlob(await canvasBlob(key), `hydra-${slug()}-${plat}.png`);
+  async function downloadImage(){
+    return saveBlob(await canvasBlob('ig'), `hydra-${slug()}.png`);
   }
   function downloadCaption(id, plat){
     const txt = document.getElementById(id).value || '';
     return saveBlob(new Blob([txt], { type:'text/plain' }), `hydra-${slug()}-legende-${plat}.txt`);
   }
-  // Enchaîne les 4 enregistrements. Vers un dossier : instantané, aucun délai.
-  // En téléchargement classique : petit délai (le navigateur ne demande qu'une
-  // fois « autoriser plusieurs téléchargements »).
+  // Enchaîne les 3 enregistrements (1 image + 2 légendes). Vers un dossier :
+  // instantané, aucun délai. En téléchargement classique : petit délai (le
+  // navigateur ne demande qu'une fois « autoriser plusieurs téléchargements »).
   async function downloadAll(){
     const toFolder = await folderReady();
     const gap = toFolder ? 0 : 450;
-    await downloadCanvas('ig');            await sleep(gap);
-    await downloadCanvas('tiktok');        await sleep(gap);
+    await downloadImage();                        await sleep(gap);
     await downloadCaption('cap-ig', 'instagram'); await sleep(gap);
     await downloadCaption('cap-tt', 'tiktok');
     return toFolder;
   }
-  document.getElementById('dl-ig').addEventListener('click', () => downloadCanvas('ig'));
-  document.getElementById('dl-tt').addEventListener('click', () => downloadCanvas('tiktok'));
+  document.getElementById('dl-img').addEventListener('click', downloadImage);
   document.getElementById('dl-all').addEventListener('click', downloadAll);
 
   document.querySelectorAll('[data-copy]').forEach(btn =>
@@ -589,8 +582,8 @@ TU RENDS UNIQUEMENT un objet JSON valide (aucun texte autour, aucune balise mark
       // (bouton « Tout télécharger » en secours).
       const toFolder = await downloadAll();
       setStatus(toFolder
-        ? `✓ Généré — 4 fichiers enregistrés dans « ${dirHandle.name} ». Vérifie les chiffres avant de poster.`
-        : '✓ Généré — 4 fichiers téléchargés. Vérifie les chiffres avant de poster.', 'ok');
+        ? `✓ Généré — image + 2 légendes enregistrées dans « ${dirHandle.name} ». Vérifie les chiffres avant de poster.`
+        : '✓ Généré — image + 2 légendes téléchargées. Vérifie les chiffres avant de poster.', 'ok');
     } catch(err){
       setStatus('Erreur : ' + (err.message || err), 'err');
     } finally {
