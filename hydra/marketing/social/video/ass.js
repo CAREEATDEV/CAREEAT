@@ -65,39 +65,9 @@ function dialogue(style, startMs, endMs, overrideTags, text) {
     `{${overrideTags}}${text}`;
 }
 
-function buildAss(content) {
-  const accentHex = ACCENTS[content.accent] || ACCENTS.green;
+function header(accentHex) {
   const textStyleColor = hexToBgr(TEXT_HEX);
   const accentStyleColor = hexToBgr(accentHex);
-
-  const lineTimes = timeline.computeLineTimes(content.lines.length);
-
-  const events = [];
-
-  // Hook — case unique, 0 → fin du hold (petit fondu de sortie).
-  events.push(dialogue('Caption', 0, timeline.LINES_A_START,
-    `\\fad(0,250)`,
-    tokenizeToAss(content.hook, accentHex, TEXT_HEX)));
-
-  // Lignes — chacune remplace la précédente dans la même case.
-  content.lines.forEach((line, i) => {
-    const { start, end } = lineTimes[i];
-    events.push(dialogue('Caption', start, end,
-      `\\fad(180,120)`,
-      tokenizeToAss(line, accentHex, TEXT_HEX)));
-  });
-
-  // Réponse — toute en couleur d'accent (les astérisques éventuelles sont
-  // ignorées : même couleur que le reste, sans effet visuel utile ici).
-  events.push(dialogue('Answer', timeline.ANSWER_START, timeline.TOTAL_MS,
-    `\\fad(300,0)\\t(0,150,\\fscx106\\fscy106)\\t(150,320,\\fscx100\\fscy100)`,
-    assEscape(String(content.answer).replace(/\*/g, ''))));
-
-  // CTA — texte plain, positionné juste à côté de la flèche (déjà dans le fond).
-  events.push(dialogue('Cta', timeline.CTA_START, timeline.TOTAL_MS,
-    `\\an4\\pos(${CTA_POS.x},${CTA_POS.y})\\fad(300,0)`,
-    assEscape(content.cta_video)));
-
   return `[Script Info]
 ScriptType: v4.00+
 PlayResX: 1080
@@ -113,9 +83,66 @@ Style: Answer,Chakra Petch,64,${accentStyleColor},&H000000FF,&H00000000,&H000000
 Style: Cta,Chakra Petch,28,${textStyleColor},&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,2,0,1,0,0,4,${PAD_H},${PAD_H},0,1
 
 [Events]
-Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-${events.join('\n')}
-`;
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`;
 }
 
-module.exports = { buildAss, assColorTag, hexToBgr, tokenizeToAss, formatAssTime };
+function answerTags() {
+  return `\\fad(300,0)\\t(0,150,\\fscx106\\fscy106)\\t(150,320,\\fscx100\\fscy100)`;
+}
+function ctaTags() {
+  return `\\an4\\pos(${CTA_POS.x},${CTA_POS.y})\\fad(300,0)`;
+}
+
+// Mode silencieux (par défaut) : minutage FIXE (timeline.js), calibré pour
+// remplir exactement la durée du fond pré-enregistré.
+function buildAss(content) {
+  const accentHex = ACCENTS[content.accent] || ACCENTS.green;
+  const lineTimes = timeline.computeLineTimes(content.lines.length);
+  const events = [];
+
+  events.push(dialogue('Caption', 0, timeline.LINES_A_START,
+    `\\fad(0,250)`, tokenizeToAss(content.hook, accentHex, TEXT_HEX)));
+
+  content.lines.forEach((line, i) => {
+    const { start, end } = lineTimes[i];
+    events.push(dialogue('Caption', start, end,
+      `\\fad(180,120)`, tokenizeToAss(line, accentHex, TEXT_HEX)));
+  });
+
+  events.push(dialogue('Answer', timeline.ANSWER_START, timeline.TOTAL_MS,
+    answerTags(), assEscape(String(content.answer).replace(/\*/g, ''))));
+
+  events.push(dialogue('Cta', timeline.CTA_START, timeline.TOTAL_MS,
+    ctaTags(), assEscape(content.cta_video)));
+
+  return `${header(accentHex)}\n${events.join('\n')}\n`;
+}
+
+// Mode voix off : minutage RÉEL, dérivé de l'alignement caractère par
+// caractère renvoyé par ElevenLabs (voice-timeline.js) — chaque segment
+// s'affiche exactement pendant que la voix le prononce.
+// `plan` = résultat de voice-timeline's buildVoicePlan(content).withAlignment(...)
+function buildAssVoice(content, plan) {
+  const accentHex = ACCENTS[content.accent] || ACCENTS.green;
+  const { times, ctaStart, totalMs } = plan;
+  const events = [];
+
+  events.push(dialogue('Caption', times.hook.start, times.hook.end,
+    `\\fad(120,180)`, tokenizeToAss(content.hook, accentHex, TEXT_HEX)));
+
+  content.lines.forEach((line, i) => {
+    const t = times[`line${i}`];
+    events.push(dialogue('Caption', t.start, t.end,
+      `\\fad(120,120)`, tokenizeToAss(line, accentHex, TEXT_HEX)));
+  });
+
+  events.push(dialogue('Answer', times.answer.start, totalMs,
+    answerTags(), assEscape(String(content.answer).replace(/\*/g, ''))));
+
+  events.push(dialogue('Cta', ctaStart, totalMs,
+    ctaTags(), assEscape(content.cta_video)));
+
+  return `${header(accentHex)}\n${events.join('\n')}\n`;
+}
+
+module.exports = { buildAss, buildAssVoice, assColorTag, hexToBgr, tokenizeToAss, formatAssTime };

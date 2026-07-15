@@ -18,6 +18,29 @@ Structure de chaque vidéo :
 3. **Fin (~8,5 s)** — la **réponse/synthèse** en gros (couleur d'accent),
    puis CTA **waitlist** + marque HYDRA.
 
+## 🎙️ Voix off (optionnel, ElevenLabs)
+
+Dans le studio, ouvre **« 🎙️ Voix off — ElevenLabs (optionnel) »**, colle ta
+**clé API ElevenLabs** et un **Voice ID** (sur elevenlabs.io : *Voix* → choisis
+une voix française → copie le Voice ID). Si ces deux champs sont remplis :
+
+- Le texte (hook/lignes/réponse) est **lu à voix haute**.
+- Les sous-titres se calent **mot à mot sur l'audio réel** (alignement
+  caractère par caractère renvoyé par ElevenLabs) — plus précis que le
+  minutage fixe utilisé en mode muet.
+- La durée totale suit celle de la voix (variable selon le texte), plus un
+  petit temps de lecture pour le CTA à la fin.
+
+Simplification volontaire : **pas de démo de barre de vie** dans ce mode (le
+fond reste fixe pendant toute la narration) — l'ajouter proprement demanderait
+d'insérer un vrai silence dans l'audio pour caler une pause dessus, un
+chantier séparé, pas fait ici.
+
+Si les deux champs sont vides, rien ne change : vidéo muette, comme avant.
+Clé et Voice ID sont stockés **uniquement dans ce navigateur**, jamais dans
+le repo. Modèle utilisé : `eleven_multilingual_v2` (voix neutre et cohérente,
+adaptée au ton HYDRA — pas le style "très expressif" d'Eleven v3).
+
 ## ⚡ Pourquoi c'est rapide (architecture)
 
 Le premier post d'une couleur d'accent donnée prend ~2 min (rendu du fond de
@@ -113,6 +136,8 @@ puisqu'elle fait partie du fond pré-enregistré.)
 - `--out <dossier>` — où écrire les fichiers (défaut : dossier courant).
   Mets ton dossier Google Drive pour retrouver la vidéo sur ton téléphone.
 - `--key sk-ant-…` — alternative à la variable d'environnement.
+- `--elevenlabs-key …` / `--voice-id …` (ou `ELEVENLABS_API_KEY` /
+  `ELEVENLABS_VOICE_ID`) — active la voix off (voir plus haut).
 
 ## Régénérer les fonds (si tu changes la charte)
 

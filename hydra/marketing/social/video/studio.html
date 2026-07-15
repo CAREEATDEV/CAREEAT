@@ -57,6 +57,14 @@
   .stage .empty{color:var(--dim);font-size:13px;letter-spacing:2px;text-align:center;}
   video{max-width:100%;max-height:86vh;border-radius:14px;background:#000;
     box-shadow:0 20px 60px rgba(0,0,0,.6);}
+  details.adv{border:1px solid var(--line);border-radius:10px;padding:12px 14px;}
+  details.adv summary{cursor:pointer;font-size:11px;letter-spacing:2px;color:var(--dim);
+    text-transform:uppercase;}
+  details.adv > div{margin-top:14px;display:flex;flex-direction:column;gap:14px;}
+  input[type=text]{
+    width:100%;background:#000;border:1px solid var(--line);border-radius:10px;
+    color:var(--text);font-family:inherit;font-size:15px;padding:12px 14px;letter-spacing:.3px;}
+  input[type=text]:focus{outline:none;border-color:var(--green);}
 </style>
 </head>
 <body>
@@ -76,6 +84,26 @@
       <div class="hint">Claude fait la recherche, écrit l'accroche + les lignes à l'écran +
         la réponse + les 2 légendes, et le studio rend la vidéo verticale.</div>
     </div>
+
+    <details class="adv">
+      <summary>🎙️ Voix off — ElevenLabs (optionnel)</summary>
+      <div>
+        <div>
+          <label>Clé API ElevenLabs</label>
+          <input type="password" id="elkey" placeholder="…" autocomplete="off" spellcheck="false">
+        </div>
+        <div>
+          <label>Voice ID</label>
+          <input type="text" id="voiceid" placeholder="ex. 21m00Tcm4TlvDq8ikWAM" autocomplete="off" spellcheck="false">
+          <div class="hint">Sur elevenlabs.io : <b>Voix</b> → choisis une voix française →
+            copie le <b>Voice ID</b>. Stockés <b>uniquement dans ce navigateur</b>, jamais
+            écrits dans le repo.</div>
+        </div>
+        <div class="hint">Si les deux champs sont remplis, la vidéo est lue à voix haute et
+          les sous-titres se calent mot à mot sur cet audio réel (pas de démo de barre de vie
+          dans ce mode). Sinon, vidéo muette comme avant.</div>
+      </div>
+    </details>
 
     <button class="gen" id="generate">✦ Générer la vidéo</button>
     <div class="log" id="log">Prêt.</div>
@@ -100,15 +128,23 @@
 
   <div class="stage">
     <div class="empty" id="empty">L'aperçu de la vidéo s'affichera ici.</div>
-    <video id="preview" controls autoplay loop muted playsinline hidden></video>
+    <video id="preview" controls loop playsinline hidden></video>
   </div>
 
 <script>
   const $ = (id) => document.getElementById(id);
   const KEY_LS = 'hydra.anthropic.key';
+  const EL_KEY_LS = 'hydra.elevenlabs.key';
+  const EL_VOICE_LS = 'hydra.elevenlabs.voiceid';
   $('apikey').value = localStorage.getItem(KEY_LS) || '';
   $('apikey').addEventListener('change', () =>
     localStorage.setItem(KEY_LS, $('apikey').value.trim()));
+  $('elkey').value = localStorage.getItem(EL_KEY_LS) || '';
+  $('elkey').addEventListener('change', () =>
+    localStorage.setItem(EL_KEY_LS, $('elkey').value.trim()));
+  $('voiceid').value = localStorage.getItem(EL_VOICE_LS) || '';
+  $('voiceid').addEventListener('change', () =>
+    localStorage.setItem(EL_VOICE_LS, $('voiceid').value.trim()));
 
   const logEl = $('log');
   function log(msg, append){
@@ -131,6 +167,8 @@
     if(!key){ errLog('Colle d\'abord ta clé API Anthropic.'); return; }
     if(!topic){ errLog('Écris un sujet de vidéo.'); return; }
     localStorage.setItem(KEY_LS, key);
+    const elKey = $('elkey').value.trim();
+    const voiceId = $('voiceid').value.trim();
 
     $('generate').disabled = true;
     $('results').hidden = true;
@@ -139,7 +177,10 @@
       const resp = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, key }),
+        body: JSON.stringify({
+          topic, key,
+          ...(elKey && voiceId ? { elevenLabsKey: elKey, voiceId } : {}),
+        }),
       });
       // Lecture du flux NDJSON (une ligne par événement).
       const reader = resp.body.getReader();

@@ -75,6 +75,10 @@ const server = http.createServer(async (req, res) => {
         opts.topic = body.topic.trim();
         opts.key = body.key.trim();
       }
+      if (body.elevenLabsKey && body.voiceId) {
+        opts.elevenLabsKey = String(body.elevenLabsKey).trim();
+        opts.voiceId = String(body.voiceId).trim();
+      }
       const r = await generateVideo(opts);
       const rel = (p) => (p ? '/out/' + path.basename(p) : null);
       emit({

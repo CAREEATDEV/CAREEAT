@@ -27,7 +27,9 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 const { execFileSync, spawnSync } = require('child_process');
 const timeline = require('./timeline');
-const { buildAss } = require('./ass');
+const { buildAss, buildAssVoice } = require('./ass');
+const { buildVoicePlan } = require('./voice-timeline');
+const { synthesizeWithTimestamps } = require('./elevenlabs');
 
 // ── petits utilitaires ───────────────────────────────────────────────────────
 function parseArgs(argv) {
@@ -216,9 +218,11 @@ function normalizeContent(c) {
 }
 
 // ── moteur réutilisable (CLI + studio web l'appellent tous les deux) ─────────
-// opts : { content?, topic?, key?, outDir, slug?, onLog? }
+// opts : { content?, topic?, key?, outDir, slug?, onLog?,
+//          elevenLabsKey?, voiceId?, elevenLabsModel? }
 //  - content : objet contenu déjà prêt (re-rendu / test) ; sinon
 //  - topic + key : génère le contenu via Claude.
+//  - elevenLabsKey + voiceId (tous deux fournis) : active le mode voix off.
 // Retourne { video, isMp4, captionIg, captionTt, contentPath, content, base }.
 async function generateVideo(opts) {
   const log = opts.onLog || (() => {});
@@ -260,32 +264,40 @@ async function generateVideo(opts) {
     throw new Error('Ton ffmpeg ne sait pas encoder en H.264 (libx264 manquant).');
   }
 
-  // 2) Fond de marque : rendu UNE FOIS par couleur d'accent, mis en cache.
-  const bgPath = await ensureBackground(content.accent, {
-    fontsDir, bin, log,
-    bgDir: path.join(__dirname, 'backgrounds'),
-  });
-
-  // 3) Sous-titres (hook/lignes/réponse/CTA), calibrés sur le minutage FIXE
-  //    du fond (timeline.js) — incrustés directement via ffmpeg (rapide,
-  //    aucun Chromium pour cette étape).
-  const assPath = `${base}.ass`;
-  fs.writeFileSync(assPath, buildAss(content), 'utf8');
-
+  const bgDir = path.join(__dirname, 'backgrounds');
   const outVideo = `${base}.mp4`;
-  log('🎬 Incrustation des sous-titres…');
-  try {
-    execFileSync(bin, [
-      '-y', '-i', bgPath,
-      '-vf', `ass=${escapeFfmpegPath(assPath)}:fontsdir=${escapeFfmpegPath(fontsDir)}`,
-      '-c:v', 'libx264', '-preset', 'medium', '-crf', '18',
-      '-pix_fmt', 'yuv420p', '-movflags', '+faststart',
-      outVideo,
-    ], { stdio: 'pipe' });
-  } catch (e) {
-    throw new Error('ffmpeg (incrustation) a échoué : ' + (e.stderr || e.message));
+
+  if (opts.elevenLabsKey && opts.voiceId) {
+    // Mode voix off : durée et minutage dérivés de la voix réelle (pas du
+    // minutage fixe) — voir renderVoiceVideo().
+    await renderVoiceVideo(content, {
+      base, outVideo, fontsDir, bin, log,
+      bgDir, chromium: resolvePlaywright, chromiumExecutablePath,
+      apiKey: opts.elevenLabsKey, voiceId: opts.voiceId, modelId: opts.elevenLabsModel,
+      ttsImpl: opts.ttsImpl, // injectable pour les tests (sans appel réseau réel)
+    });
+  } else {
+    // Mode silencieux (par défaut) : fond pré-enregistré (une fois par
+    // couleur, mis en cache) + sous-titres calibrés sur le minutage FIXE
+    // (timeline.js) — incrustés directement via ffmpeg (rapide, aucun
+    // Chromium pour cette étape).
+    const bgPath = await ensureBackground(content.accent, { fontsDir, bin, log, bgDir });
+    const assPath = `${base}.ass`;
+    fs.writeFileSync(assPath, buildAss(content), 'utf8');
+    log('🎬 Incrustation des sous-titres…');
+    try {
+      execFileSync(bin, [
+        '-y', '-i', bgPath,
+        '-vf', `ass=${escapeFfmpegPath(assPath)}:fontsdir=${escapeFfmpegPath(fontsDir)}`,
+        '-c:v', 'libx264', '-preset', 'medium', '-crf', '18',
+        '-pix_fmt', 'yuv420p', '-movflags', '+faststart',
+        outVideo,
+      ], { stdio: 'pipe' });
+    } catch (e) {
+      throw new Error('ffmpeg (incrustation) a échoué : ' + (e.stderr || e.message));
+    }
+    fs.unlinkSync(assPath);
   }
-  fs.unlinkSync(assPath);
 
   log('✅ Terminé.');
   return {
@@ -364,6 +376,100 @@ async function ensureBackground(accent, { fontsDir, bin, log, bgDir }) {
   return outPath;
 }
 
+// Une seule image fixe par couleur (chrome + barre pleine, avant toute
+// démo — template-background.html au tout premier instant) : sert de fond
+// pour le mode voix off (pas d'animation de barre dans ce mode, voir plus
+// bas pourquoi). Rendu quasi instantané (un seul screenshot).
+async function ensureStillBackground(accent, { fontsDir, bin, log, bgDir }) {
+  fs.mkdirSync(bgDir, { recursive: true });
+  const outPath = path.join(bgDir, `still-${accent}.png`);
+  if (fs.existsSync(outPath)) return outPath;
+
+  const toFileUrl = (p) => pathToFileURL(p).href;
+  let html = fs.readFileSync(path.join(__dirname, 'template-background.html'), 'utf8');
+  const tokens = {
+    __FONT_DISPLAY__: toFileUrl(path.join(fontsDir, 'ChakraPetch-Bold.ttf')),
+    __FONT_LABEL__: toFileUrl(path.join(fontsDir, 'ChakraPetch-SemiBold.ttf')),
+    __FONT_MONO__: toFileUrl(path.join(fontsDir, 'IBMPlexMono-Regular.ttf')),
+    __FONT_MONOBOLD__: toFileUrl(path.join(fontsDir, 'IBMPlexMono-Bold.ttf')),
+    __BG_ACCENT__: accent,
+    // La démo n'a pas le temps de se déclencher avant la capture (t=0) :
+    // les valeurs exactes n'ont pas d'importance ici.
+    __BG_DEMO_START__: 999999, __BG_DEMO_MS__: 3000, __BG_TOTAL_MS__: 1000000,
+  };
+  for (const [token, value] of Object.entries(tokens)) {
+    html = replaceAll(html, token, String(value));
+  }
+  const tmpHtml = path.join(bgDir, `still-${accent}.tmp.html`);
+  fs.writeFileSync(tmpHtml, html);
+
+  const { chromium } = resolvePlaywright();
+  const browser = await chromium.launch({ executablePath: chromiumExecutablePath() });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1080, height: 1350 } });
+    await page.goto(toFileUrl(tmpHtml));
+    await page.evaluate(() => document.fonts.ready);
+    await page.evaluate(() => window.__seek(0));
+    await page.screenshot({ path: outPath });
+    await browser.close();
+  } catch (e) {
+    try { await browser.close(); } catch (_) {}
+    throw e;
+  } finally {
+    fs.rmSync(tmpHtml, { force: true });
+  }
+  return outPath;
+}
+
+// Mode voix off : synthétise la narration (ElevenLabs, avec l'alignement
+// caractère par caractère), cale les sous-titres sur l'audio réel, et
+// assemble le tout sur un fond fixe (pas de Chromium par post — juste une
+// image tenue à l'écran + le mux audio + l'incrustation des sous-titres,
+// en un seul passage ffmpeg).
+//
+// Simplification volontaire : pas de démo de barre de vie dans ce mode —
+// l'ajouter proprement demanderait d'insérer un vrai silence dans l'audio
+// pour caler une pause vidéo dessus (un chantier à part, pas fait ici).
+async function renderVoiceVideo(content, opts) {
+  const { base, outVideo, fontsDir, bin, log, bgDir, apiKey, voiceId, modelId, ttsImpl } = opts;
+
+  const plan = buildVoicePlan(content);
+  log('🎙️  Synthèse de la voix off (ElevenLabs)…');
+  const synth = ttsImpl || synthesizeWithTimestamps;
+  const { audioBuffer, starts, ends } = await synth({
+    text: plan.narration, apiKey, voiceId, modelId,
+  });
+  const { times, ctaStart, totalMs } = plan.withAlignment(starts, ends);
+
+  const audioPath = `${base}.narration.mp3`;
+  fs.writeFileSync(audioPath, audioBuffer);
+
+  const stillPath = await ensureStillBackground(content.accent, { fontsDir, bin, log, bgDir });
+
+  const assPath = `${base}.ass`;
+  fs.writeFileSync(assPath, buildAssVoice(content, { times, ctaStart, totalMs }), 'utf8');
+
+  log(`🎬 Assemblage (voix + sous-titres, ${(totalMs / 1000).toFixed(1)} s)…`);
+  try {
+    execFileSync(bin, [
+      '-y',
+      '-loop', '1', '-framerate', '30', '-t', String(totalMs / 1000), '-i', stillPath,
+      '-i', audioPath,
+      '-vf', `ass=${escapeFfmpegPath(assPath)}:fontsdir=${escapeFfmpegPath(fontsDir)}`,
+      '-map', '0:v:0', '-map', '1:a:0',
+      '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-pix_fmt', 'yuv420p',
+      '-c:a', 'aac', '-b:a', '160k',
+      '-movflags', '+faststart',
+      outVideo,
+    ], { stdio: 'pipe' });
+  } catch (e) {
+    throw new Error('ffmpeg (assemblage voix off) a échoué : ' + (e.stderr || e.message));
+  } finally {
+    fs.rmSync(assPath, { force: true });
+    fs.rmSync(audioPath, { force: true });
+  }
+}
+
 // ── CLI ──────────────────────────────────────────────────────────────────────
 async function main() {
   const args = parseArgs(process.argv.slice(2));
@@ -381,6 +487,11 @@ async function main() {
     console.error('Usage : node render-video.js --sujet "…"   (ou --json contenu.json)');
     process.exit(1);
   }
+  // Voix off (optionnelle) : --elevenlabs-key/--voice-id, ou variables
+  // d'environnement ELEVENLABS_API_KEY / ELEVENLABS_VOICE_ID.
+  opts.elevenLabsKey = args['elevenlabs-key'] || process.env.ELEVENLABS_API_KEY;
+  opts.voiceId = args['voice-id'] || process.env.ELEVENLABS_VOICE_ID;
+  opts.elevenLabsModel = args['elevenlabs-model'] || process.env.ELEVENLABS_MODEL;
   const r = await generateVideo(opts);
   console.log('\n✅ Fini :');
   console.log('   ' + r.video);
