@@ -1,0 +1,12 @@
+{
+  "name": "hydra-video-studio",
+  "private": true,
+  "description": "Générateur de vidéos verticales HYDRA (1080x1920) — sujet → mp4 + légendes",
+  "scripts": {
+    "render": "node render-video.js"
+  },
+  "dependencies": {
+    "ffmpeg-static": "^5.2.0",
+    "playwright": "^1.49.0"
+  }
+}

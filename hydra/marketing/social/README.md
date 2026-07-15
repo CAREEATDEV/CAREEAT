@@ -1,5 +1,10 @@
 # HYDRA — Posts "hook" Instagram / TikTok
 
+> 🎬 **Version vidéo** : le dossier [`video/`](video/) génère des vidéos
+> verticales 1080×1920 (hook → révélation ligne par ligne → démo barre de
+> vie → réponse + CTA waitlist) à partir d'un simple sujet, avec la même
+> charte. Voir `video/README.md`.
+
 Mécanique : l'**image** pose une question ouverte ou une intrigue (façon
 mèche), la **légende** apporte l'explication scientifique complète. Ça
 maximise le temps passé sur le post (l'algorithme le détecte et pousse le
