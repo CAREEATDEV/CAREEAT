@@ -21,7 +21,13 @@
     font-family:'Chakra',system-ui,sans-serif;letter-spacing:.3px;
     display:grid;grid-template-columns:400px 1fr;min-height:100vh;
   }
-  @media(max-width:900px){ body{grid-template-columns:1fr;} }
+  @media(max-width:900px){
+    body{grid-template-columns:1fr;}
+    .panel{max-height:none;border-right:0;border-bottom:1px solid var(--line);}
+    /* 16px : évite le zoom automatique d'iOS au focus des champs */
+    textarea,input[type=text],input[type=password]{font-size:16px;}
+    .stage{padding:22px;}
+  }
 
   /* ---- panel ---- */
   .panel{
@@ -108,9 +114,15 @@
     <div id="results" hidden>
       <div class="divider"></div>
 
-      <div class="row" style="margin-top:14px">
-        <button class="dl" id="dl-ig">⬇ Image Instagram</button>
-        <button class="dl" id="dl-tt">⬇ Image TikTok</button>
+      <button class="dl" id="dl-all" style="margin-top:14px;padding:16px">
+        ⬇ Tout télécharger (2 images + 2 légendes)</button>
+      <div class="hint">Le téléchargement des 4 fichiers se lance aussi tout seul
+        après la génération. Si le navigateur demande « Autoriser plusieurs
+        téléchargements », accepte une fois.</div>
+
+      <div class="row" style="margin-top:12px">
+        <button class="copybtn" id="dl-ig" style="margin-top:0">⬇ Image Instagram</button>
+        <button class="copybtn" id="dl-tt" style="margin-top:0">⬇ Image TikTok</button>
       </div>
 
       <div style="margin-top:16px">
@@ -118,7 +130,7 @@
         <textarea id="cap-ig" style="min-height:130px"></textarea>
         <div class="row">
           <button class="copybtn" data-copy="cap-ig">Copier</button>
-          <button class="copybtn" data-dl="cap-ig" data-name="hydra-legende-instagram.txt">Télécharger .txt</button>
+          <button class="copybtn" data-dl="cap-ig" data-plat="instagram">Télécharger .txt</button>
         </div>
       </div>
 
@@ -127,7 +139,7 @@
         <textarea id="cap-tt" style="min-height:110px"></textarea>
         <div class="row">
           <button class="copybtn" data-copy="cap-tt">Copier</button>
-          <button class="copybtn" data-dl="cap-tt" data-name="hydra-legende-tiktok.txt">Télécharger .txt</button>
+          <button class="copybtn" data-dl="cap-tt" data-plat="tiktok">Télécharger .txt</button>
         </div>
       </div>
 
@@ -161,8 +173,8 @@
 
 <script>
   const FORMATS = {
-    ig:     { w:1080, h:1350, hook:76, canvas:'cv-ig', file:'hydra-post-instagram.png' },
-    tiktok: { w:1080, h:1920, hook:84, canvas:'cv-tt', file:'hydra-post-tiktok.png' },
+    ig:     { w:1080, h:1350, hook:76, canvas:'cv-ig' },
+    tiktok: { w:1080, h:1920, hook:84, canvas:'cv-tt' },
   };
   const ACCENTS = { green:'#3EE07A', red:'#FF3B4A', amber:'#FFB020', poison:'#B44CFF' };
   const COL = { bg:'#000000', empty:'#1C2026', text:'#EDEFF2', dim:'#7C828C' };
@@ -279,18 +291,44 @@
   function drawAll(){ drawOne('ig'); drawOne('tiktok'); }
 
   // ---- downloads / copy ----
+  // Les 4 fichiers d'un même post partagent un slug tiré du sujet, pour
+  // qu'ils restent groupés dans le dossier Téléchargements / le Drive.
+  function slug(){
+    const t = (topicEl.value || 'post')
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .toLowerCase().replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '').slice(0, 40).replace(/-+$/, '');
+    return t || 'post';
+  }
+  function saveBlob(blob, name){
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
   function downloadCanvas(key){
     const fmt = FORMATS[key];
-    document.getElementById(fmt.canvas).toBlob(blob => {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = fmt.file;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    }, 'image/png');
+    const plat = key === 'ig' ? 'instagram' : 'tiktok';
+    document.getElementById(fmt.canvas).toBlob(
+      blob => saveBlob(blob, `hydra-${slug()}-${plat}.png`), 'image/png');
+  }
+  function downloadCaption(id, plat){
+    const txt = document.getElementById(id).value || '';
+    saveBlob(new Blob([txt], { type:'text/plain' }), `hydra-${slug()}-legende-${plat}.txt`);
+  }
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  // Enchaîne les 4 téléchargements (petit délai entre chaque : plus fiable,
+  // le navigateur ne demande qu'une fois « autoriser plusieurs téléchargements »).
+  async function downloadAll(){
+    downloadCanvas('ig');        await sleep(500);
+    downloadCanvas('tiktok');    await sleep(500);
+    downloadCaption('cap-ig', 'instagram'); await sleep(500);
+    downloadCaption('cap-tt', 'tiktok');
   }
   document.getElementById('dl-ig').addEventListener('click', () => downloadCanvas('ig'));
   document.getElementById('dl-tt').addEventListener('click', () => downloadCanvas('tiktok'));
+  document.getElementById('dl-all').addEventListener('click', downloadAll);
 
   document.querySelectorAll('[data-copy]').forEach(btn =>
     btn.addEventListener('click', () => {
@@ -299,14 +337,8 @@
       setTimeout(() => { btn.textContent = old; }, 1200);
     }));
   document.querySelectorAll('[data-dl]').forEach(btn =>
-    btn.addEventListener('click', () => {
-      const txt = document.getElementById(btn.dataset.dl).value || '';
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(new Blob([txt], { type:'text/plain' }));
-      a.download = btn.dataset.name;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    }));
+    btn.addEventListener('click', () =>
+      downloadCaption(btn.dataset.dl, btn.dataset.plat)));
 
   // ---- ajustements manuels (optionnels) ----
   document.getElementById('hook').addEventListener('input', e => {
@@ -447,7 +479,11 @@ TU RENDS UNIQUEMENT un objet JSON valide (aucun texte autour, aucune balise mark
       document.getElementById('cta').value  = state.cta;
       document.getElementById('results').hidden = false;
       drawAll();
-      setStatus('✓ Généré. Vérifie les chiffres, puis télécharge les 2 images et copie les 2 légendes.', 'ok');
+      setStatus('✓ Généré — téléchargement des 4 fichiers en cours. Vérifie les chiffres avant de poster.', 'ok');
+      // Envoi direct : les 2 images + 2 légendes partent tout seuls dans le
+      // dossier Téléchargements (bouton « Tout télécharger » en secours si le
+      // navigateur bloque les téléchargements automatiques).
+      await downloadAll();
     } catch(err){
       setStatus('Erreur : ' + (err.message || err), 'err');
     } finally {
