@@ -19,14 +19,14 @@
   body{
     margin:0;background:var(--bg);color:var(--text);
     font-family:'Chakra',system-ui,sans-serif;letter-spacing:.3px;
-    display:grid;grid-template-columns:380px 1fr;min-height:100vh;
+    display:grid;grid-template-columns:400px 1fr;min-height:100vh;
   }
-  @media(max-width:820px){ body{grid-template-columns:1fr;} }
+  @media(max-width:900px){ body{grid-template-columns:1fr;} }
 
-  /* ---- controls ---- */
+  /* ---- panel ---- */
   .panel{
     background:var(--panel);border-right:1px solid var(--line);
-    padding:26px 22px;display:flex;flex-direction:column;gap:20px;
+    padding:26px 22px;display:flex;flex-direction:column;gap:18px;
     max-height:100vh;overflow-y:auto;
   }
   .brandhead{font-size:24px;letter-spacing:8px;}
@@ -35,66 +35,49 @@
 
   label{display:block;font-size:11px;letter-spacing:2px;color:var(--dim);
     text-transform:uppercase;margin-bottom:8px;}
-  textarea,input[type=text]{
+  textarea,input[type=text],input[type=password]{
     width:100%;background:#000;border:1px solid var(--line);border-radius:10px;
     color:var(--text);font-family:'Chakra',monospace;font-size:15px;
     padding:12px 14px;resize:vertical;letter-spacing:.3px;
   }
-  textarea{min-height:96px;line-height:1.4;}
+  textarea{min-height:80px;line-height:1.4;}
   textarea:focus,input:focus{outline:none;border-color:var(--green);}
-  .hint{font-size:11px;color:var(--dim);margin-top:6px;line-height:1.4;}
+  .hint{font-size:11px;color:var(--dim);margin-top:6px;line-height:1.45;}
   .hint code{color:var(--green);background:#000;padding:1px 5px;border-radius:4px;}
+  .hint b{color:var(--text);}
 
-  .row{display:flex;gap:10px;}
-  .swatches{display:flex;gap:10px;}
-  .sw{flex:1;height:42px;border-radius:10px;border:2px solid transparent;cursor:pointer;
-    display:flex;align-items:center;justify-content:center;font-size:10px;letter-spacing:1px;
-    color:#000;font-weight:700;}
-  .sw.on{border-color:var(--text);}
-  .seg-green{background:var(--green);}
-  .seg-red{background:var(--red);}
-  .seg-amber{background:var(--amber);}
-  .seg-poison{background:var(--poison);}
-
-  .toggle{display:flex;background:#000;border:1px solid var(--line);border-radius:10px;overflow:hidden;}
-  .toggle button{flex:1;background:transparent;color:var(--dim);border:0;padding:12px;
-    font-family:'Chakra';font-size:12px;letter-spacing:2px;cursor:pointer;text-transform:uppercase;}
-  .toggle button.on{background:var(--green);color:#000;}
-
-  input[type=range]{width:100%;accent-color:var(--green);}
-  .segval{color:var(--text);font-size:13px;}
-
-  .dl{background:var(--green);color:#000;border:0;border-radius:12px;
+  .gen{background:var(--green);color:#000;border:0;border-radius:12px;
     padding:16px;font-family:'Chakra';font-size:15px;letter-spacing:2px;cursor:pointer;
-    text-transform:uppercase;margin-top:4px;}
-  .dl:active{transform:translateY(1px);}
-
-  .capbox{margin-top:6px;}
-  .copybtn{background:transparent;border:1px solid var(--line);color:var(--text);
-    border-radius:8px;padding:8px 12px;font-family:'Chakra';font-size:11px;letter-spacing:2px;
-    cursor:pointer;margin-top:8px;text-transform:uppercase;}
-
-  /* ---- AI card ---- */
-  .aicard{background:#0B0D11;border:1px solid var(--line);border-radius:14px;
-    padding:16px 15px;display:flex;flex-direction:column;}
-  .ailabel{font-size:12px;letter-spacing:3px;color:var(--green);
-    text-transform:uppercase;margin-bottom:14px;}
-  .aicard label{margin-top:14px;}
-  .aicard label:first-of-type{margin-top:0;}
-  .gen{margin-top:16px;background:var(--green);color:#000;border:0;border-radius:12px;
-    padding:15px;font-family:'Chakra';font-size:14px;letter-spacing:2px;cursor:pointer;
     text-transform:uppercase;}
   .gen:active{transform:translateY(1px);}
   .gen:disabled{opacity:.5;cursor:progress;}
-  .aistatus{font-size:11px;color:var(--dim);margin-top:11px;line-height:1.45;min-height:15px;}
+  .aistatus{font-size:11px;color:var(--dim);line-height:1.45;min-height:15px;}
   .aistatus.err{color:var(--red);}
   .aistatus.ok{color:var(--green);}
-  .divider{height:1px;background:var(--line);margin:4px 0 2px;}
+  .divider{height:1px;background:var(--line);}
+
+  .row{display:flex;gap:10px;}
+  .dl{flex:1;background:var(--green);color:#000;border:0;border-radius:12px;
+    padding:14px 10px;font-family:'Chakra';font-size:13px;letter-spacing:1.5px;cursor:pointer;
+    text-transform:uppercase;}
+  .dl:active{transform:translateY(1px);}
+  .copybtn{flex:1;background:transparent;border:1px solid var(--line);color:var(--text);
+    border-radius:8px;padding:9px 12px;font-family:'Chakra';font-size:11px;letter-spacing:2px;
+    cursor:pointer;margin-top:8px;text-transform:uppercase;}
+  .copybtn:active{transform:translateY(1px);}
+
+  details.adv{border:1px solid var(--line);border-radius:10px;padding:12px 14px;}
+  details.adv summary{cursor:pointer;font-size:11px;letter-spacing:2px;color:var(--dim);
+    text-transform:uppercase;}
+  details.adv > div{margin-top:14px;display:flex;flex-direction:column;gap:14px;}
 
   /* ---- stage ---- */
-  .stage{display:flex;align-items:center;justify-content:center;padding:32px;overflow:auto;}
-  #preview{
-    max-width:100%;max-height:88vh;border-radius:12px;
+  .stage{display:flex;gap:32px;align-items:center;justify-content:center;
+    padding:32px;overflow:auto;flex-wrap:wrap;}
+  .prev{display:flex;flex-direction:column;gap:10px;align-items:center;}
+  .ptag{font-size:11px;letter-spacing:3px;color:var(--dim);}
+  .prev canvas{
+    max-width:100%;max-height:78vh;border-radius:12px;
     box-shadow:0 20px 60px rgba(0,0,0,.6);
   }
 </style>
@@ -103,96 +86,97 @@
   <div class="panel">
     <div class="brandhead">HYDR<b>A</b><span>STUDIO DE POSTS</span></div>
 
-    <div class="aicard">
-      <div class="ailabel">✦ Génération auto (Claude)</div>
-
+    <div>
       <label>Clé API Anthropic</label>
       <input type="password" id="apikey" placeholder="sk-ant-…" autocomplete="off" spellcheck="false">
       <div class="hint">Stockée <b>uniquement dans ce navigateur</b> (localStorage), envoyée
         seulement à Anthropic. Jamais publiée sur GitHub. Clé sur
         <code>console.anthropic.com</code>.</div>
-
-      <label>Titre / sujet du post</label>
-      <textarea id="topic" placeholder="Ex. : Le mythe des 8 verres d'eau par jour"></textarea>
-      <div class="hint">Tape juste le thème. Claude fait la recherche scientifique, trie les
-        sources, puis écrit l'accroche, la couleur, l'appel à l'action et la légende complète.</div>
-
-      <button class="gen" id="generate">✦ Générer avec l'IA</button>
-      <div class="aistatus" id="aistatus"></div>
-    </div>
-
-    <div class="divider"></div>
-
-    <div>
-      <label>Accroche (texte sur l'image)</label>
-      <textarea id="hook">Et si le chiffre *« 8 verres par jour »* n'avait aucune base scientifique&nbsp;?</textarea>
-      <div class="hint">Entoure les mots à mettre en couleur avec des <code>*astérisques*</code>.</div>
     </div>
 
     <div>
-      <label>Bandeau haut (eyebrow)</label>
-      <input type="text" id="eyebrow" value="HYDRA · SCIENCE">
+      <label>Sujet du post (la seule chose à écrire)</label>
+      <textarea id="topic" placeholder="Ex. : Et si les « 8 verres par jour » n'avaient aucune base scientifique ?"></textarea>
+      <div class="hint">Claude fait la recherche scientifique puis génère tout :
+        accroche, couleur, appel à l'action, image Instagram, image TikTok et les
+        deux légendes.</div>
     </div>
 
-    <div>
-      <label>Appel à l'action (bas)</label>
-      <input type="text" id="cta" value="LA RÉPONSE EN LÉGENDE">
-    </div>
+    <button class="gen" id="generate">✦ Générer le post</button>
+    <div class="aistatus" id="aistatus"></div>
 
-    <div>
-      <label>Couleur d'accent</label>
-      <div class="swatches" id="swatches">
-        <div class="sw seg-green on"  data-c="green">VERT</div>
-        <div class="sw seg-red"       data-c="red">ROUGE</div>
-        <div class="sw seg-amber"     data-c="amber">AMBRE</div>
-        <div class="sw seg-poison"    data-c="poison">ALCOOL</div>
+    <div id="results" hidden>
+      <div class="divider"></div>
+
+      <div class="row" style="margin-top:14px">
+        <button class="dl" id="dl-ig">⬇ Image Instagram</button>
+        <button class="dl" id="dl-tt">⬇ Image TikTok</button>
       </div>
-      <div class="hint">Rouge = mythe/choc · Vert = conseil · Ambre = nuance · Violet = alcool.</div>
-    </div>
 
-    <div>
-      <label>Format</label>
-      <div class="toggle" id="format">
-        <button data-f="ig" class="on">Instagram 4:5</button>
-        <button data-f="tiktok">TikTok 9:16</button>
+      <div style="margin-top:16px">
+        <label>Légende Instagram</label>
+        <textarea id="cap-ig" style="min-height:130px"></textarea>
+        <div class="row">
+          <button class="copybtn" data-copy="cap-ig">Copier</button>
+          <button class="copybtn" data-dl="cap-ig" data-name="hydra-legende-instagram.txt">Télécharger .txt</button>
+        </div>
       </div>
-    </div>
 
-    <div>
-      <label>Barre de vie · <span class="segval" id="segval">3</span>/8 segments</label>
-      <input type="range" id="seg" min="0" max="8" value="3">
-    </div>
-
-    <button class="dl" id="download">⬇ Télécharger l'image PNG</button>
-
-    <div class="capbox">
-      <label>Légende (bloc-notes — à coller sous le post)</label>
-      <textarea id="caption" placeholder="Écris ou colle ici la légende scientifique du post…"></textarea>
-      <div class="row">
-        <button class="copybtn" id="copycap">Copier la légende</button>
-        <button class="copybtn" id="dlcap">Télécharger .txt</button>
+      <div>
+        <label>Légende TikTok</label>
+        <textarea id="cap-tt" style="min-height:110px"></textarea>
+        <div class="row">
+          <button class="copybtn" data-copy="cap-tt">Copier</button>
+          <button class="copybtn" data-dl="cap-tt" data-name="hydra-legende-tiktok.txt">Télécharger .txt</button>
+        </div>
       </div>
+
+      <details class="adv">
+        <summary>Ajustements (optionnel)</summary>
+        <div>
+          <div>
+            <label>Accroche (texte sur l'image)</label>
+            <textarea id="hook"></textarea>
+            <div class="hint">Les mots entre <code>*astérisques*</code> sont colorés.</div>
+          </div>
+          <div>
+            <label>Appel à l'action (bas de l'image)</label>
+            <input type="text" id="cta">
+          </div>
+        </div>
+      </details>
     </div>
   </div>
 
   <div class="stage">
-    <canvas id="preview"></canvas>
+    <div class="prev">
+      <span class="ptag">INSTAGRAM · 4:5</span>
+      <canvas id="cv-ig"></canvas>
+    </div>
+    <div class="prev">
+      <span class="ptag">TIKTOK · 9:16</span>
+      <canvas id="cv-tt"></canvas>
+    </div>
   </div>
 
 <script>
   const FORMATS = {
-    ig:     { w:1080, h:1350, hook:76 },
-    tiktok: { w:1080, h:1920, hook:84 },
+    ig:     { w:1080, h:1350, hook:76, canvas:'cv-ig', file:'hydra-post-instagram.png' },
+    tiktok: { w:1080, h:1920, hook:84, canvas:'cv-tt', file:'hydra-post-tiktok.png' },
   };
   const ACCENTS = { green:'#3EE07A', red:'#FF3B4A', amber:'#FFB020', poison:'#B44CFF' };
   const COL = { bg:'#000000', empty:'#1C2026', text:'#EDEFF2', dim:'#7C828C' };
 
-  const state = { accent:'green', format:'ig', seg:3 };
+  // Tout l'état visuel est piloté par la génération (pas de réglages exposés).
+  const state = {
+    hook: "Et si le chiffre *« 8 verres par jour »* n'avait aucune base scientifique ?",
+    eyebrow: 'HYDRA · SCIENCE',
+    cta: 'LA RÉPONSE EN LÉGENDE',
+    accent: 'red',
+    seg: 3,
+  };
 
-  const canvas = document.getElementById('preview');
-  const ctx = canvas.getContext('2d');
-
-  function roundRect(x,y,w,h,r){
+  function roundRect(ctx,x,y,w,h,r){
     ctx.beginPath();
     if(ctx.roundRect){ ctx.roundRect(x,y,w,h,r); }
     else {
@@ -203,7 +187,7 @@
 
   // parse *..* into color runs, then into space-preserving tokens
   function tokenize(text){
-    const parts = text.replace(/&nbsp;/g,' ').split('*');
+    const parts = text.replace(/&nbsp;/g,' ').split('*');
     const tokens = [];
     parts.forEach((part,i)=>{
       const accent = i % 2 === 1;
@@ -213,7 +197,7 @@
     });
     return tokens;
   }
-  function wrapTokens(tokens, maxW){
+  function wrapTokens(ctx, tokens, maxW){
     const lines = []; let line = []; let w = 0;
     for(const tk of tokens){
       const tw = ctx.measureText(tk.text).width;
@@ -224,7 +208,7 @@
     if(line.length) lines.push(line);
     return lines.map(l => { while(l.length && l[l.length-1].space) l.pop(); return l; });
   }
-  function drawTokens(line, x, y, accentCol){
+  function drawTokens(ctx, line, x, y, accentCol){
     for(const tk of line){
       ctx.fillStyle = tk.accent ? accentCol : COL.text;
       ctx.fillText(tk.text, x, y);
@@ -232,8 +216,10 @@
     }
   }
 
-  function draw(){
-    const fmt = FORMATS[state.format];
+  function drawOne(key){
+    const fmt = FORMATS[key];
+    const canvas = document.getElementById(fmt.canvas);
+    const ctx = canvas.getContext('2d');
     const accent = ACCENTS[state.accent];
     canvas.width = fmt.w; canvas.height = fmt.h;
 
@@ -247,7 +233,7 @@
     const barY = 92, segH = 14, gap = 10;
     const segW = (contentW - 7*gap) / 8;
     for(let i=0;i<8;i++){
-      roundRect(padH + i*(segW+gap), barY, segW, segH, 4);
+      roundRect(ctx, padH + i*(segW+gap), barY, segW, segH, 4);
       ctx.fillStyle = i < state.seg ? accent : COL.empty;
       ctx.fill();
     }
@@ -255,10 +241,8 @@
     // --- eyebrow ---
     const ebY = barY + segH + 66;
     ctx.font = "700 26px Chakra"; ctx.letterSpacing = "6px";
-    const eb = (document.getElementById('eyebrow').value || '').toUpperCase();
-    // colour the middle dot in accent if present
     let ex = padH;
-    for(const ch of eb){
+    for(const ch of state.eyebrow.toUpperCase()){
       ctx.fillStyle = (ch === '·') ? accent : COL.dim;
       ctx.fillText(ch, ex, ebY);
       ex += ctx.measureText(ch).width;
@@ -266,12 +250,11 @@
 
     // --- hook ---
     ctx.font = `700 ${fmt.hook}px Chakra`; ctx.letterSpacing = "0.5px";
-    const tokens = tokenize(document.getElementById('hook').value || '');
-    const lines = wrapTokens(tokens, contentW);
+    const lines = wrapTokens(ctx, tokenize(state.hook), contentW);
     const lineH = fmt.hook * 1.18;
     const hookTop = ebY + 54;
     lines.forEach((line, i) => {
-      drawTokens(line, padH, hookTop + i*lineH + fmt.hook*0.82, accent);
+      drawTokens(ctx, line, padH, hookTop + i*lineH + fmt.hook*0.82, accent);
     });
 
     // --- brand (bottom) ---
@@ -289,49 +272,48 @@
     ctx.fillStyle = accent; ctx.fillText("↓", padH, ctaY);
     const wArrow = ctx.measureText("↓").width + 18;
     ctx.fillStyle = COL.text;
-    ctx.fillText((document.getElementById('cta').value || '').toUpperCase(), padH + wArrow, ctaY);
+    ctx.fillText(state.cta.toUpperCase(), padH + wArrow, ctaY);
 
     ctx.letterSpacing = "0px";
   }
+  function drawAll(){ drawOne('ig'); drawOne('tiktok'); }
 
-  // ---- wiring ----
-  document.getElementById('hook').addEventListener('input', draw);
-  document.getElementById('eyebrow').addEventListener('input', draw);
-  document.getElementById('cta').addEventListener('input', draw);
-  document.getElementById('seg').addEventListener('input', e => {
-    state.seg = +e.target.value; document.getElementById('segval').textContent = state.seg; draw();
-  });
-  document.getElementById('swatches').addEventListener('click', e => {
-    const el = e.target.closest('.sw'); if(!el) return;
-    state.accent = el.dataset.c;
-    document.querySelectorAll('.sw').forEach(s => s.classList.toggle('on', s === el));
-    draw();
-  });
-  document.getElementById('format').addEventListener('click', e => {
-    const el = e.target.closest('button'); if(!el) return;
-    state.format = el.dataset.f;
-    document.querySelectorAll('#format button').forEach(b => b.classList.toggle('on', b === el));
-    draw();
-  });
-  document.getElementById('download').addEventListener('click', () => {
-    canvas.toBlob(blob => {
+  // ---- downloads / copy ----
+  function downloadCanvas(key){
+    const fmt = FORMATS[key];
+    document.getElementById(fmt.canvas).toBlob(blob => {
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `hydra-post-${state.format}.png`;
+      a.download = fmt.file;
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     }, 'image/png');
+  }
+  document.getElementById('dl-ig').addEventListener('click', () => downloadCanvas('ig'));
+  document.getElementById('dl-tt').addEventListener('click', () => downloadCanvas('tiktok'));
+
+  document.querySelectorAll('[data-copy]').forEach(btn =>
+    btn.addEventListener('click', () => {
+      navigator.clipboard.writeText(document.getElementById(btn.dataset.copy).value || '');
+      const old = btn.textContent; btn.textContent = '✓ Copié';
+      setTimeout(() => { btn.textContent = old; }, 1200);
+    }));
+  document.querySelectorAll('[data-dl]').forEach(btn =>
+    btn.addEventListener('click', () => {
+      const txt = document.getElementById(btn.dataset.dl).value || '';
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([txt], { type:'text/plain' }));
+      a.download = btn.dataset.name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }));
+
+  // ---- ajustements manuels (optionnels) ----
+  document.getElementById('hook').addEventListener('input', e => {
+    state.hook = e.target.value; drawAll();
   });
-  document.getElementById('copycap').addEventListener('click', () => {
-    navigator.clipboard.writeText(document.getElementById('caption').value || '');
-  });
-  document.getElementById('dlcap').addEventListener('click', () => {
-    const txt = document.getElementById('caption').value || '';
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([txt], { type:'text/plain' }));
-    a.download = `hydra-legende-${state.format}.txt`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  document.getElementById('cta').addEventListener('input', e => {
+    state.cta = e.target.value; drawAll();
   });
 
   // ---- IA : génération via l'API Claude (Anthropic) ----
@@ -353,19 +335,11 @@
     statusEl.className = 'aistatus' + (cls ? ' ' + cls : '');
   }
 
-  // Applique une couleur d'accent par programme (met aussi à jour les pastilles).
-  function setAccent(c){
-    if(!ACCENTS[c]) return;
-    state.accent = c;
-    document.querySelectorAll('.sw').forEach(s =>
-      s.classList.toggle('on', s.dataset.c === c));
-  }
-
-  // Le prompt structuré : recherche scientifique → tri → accroche + légende
-  // optimisée pour la rétention, dans le ton HYDRA, avec CTA vers la landing.
+  // Le prompt structuré : recherche scientifique → tri → tout le post
+  // (visuel + légendes Instagram et TikTok), dans le ton HYDRA.
   const SYSTEM_PROMPT = `Tu es le copywriter scientifique de HYDRA, une app d'hydratation au ton BRUTAL, MINIMALISTE, DIRECT — jamais "wellness", jamais d'émojis dégoulinants, aucune émotion cucul. Marque vidéoludique (barre de vie qui se vide, l'alcool est un "poison").
 
-MISSION : à partir d'un simple thème, tu produis un post Instagram/TikTok complet.
+MISSION : à partir d'un simple sujet, tu produis un post complet pour Instagram ET TikTok.
 
 MÉTHODE :
 1. Utilise l'outil web_search pour VÉRIFIER les faits et chiffres (mécanismes physiologiques, études, indices comme le Beverage Hydration Index, échelle d'Armstrong, etc.). Ne cite jamais une statistique précise sans l'avoir vérifiée. Si un chiffre exact reste incertain, reste qualitatif plutôt que d'inventer.
@@ -373,25 +347,45 @@ MÉTHODE :
 
 MÉCANIQUE DU POST (rétention) :
 - L'IMAGE ne pose qu'une QUESTION OUVERTE ou une INTRIGUE (la "mèche") — jamais la réponse. But : donner envie de lire la légende.
-- La LÉGENDE donne l'explication scientifique complète et détaillée, structurée en courts paragraphes percutants, pour maximiser le temps de lecture (l'algorithme pousse alors le post).
+- La LÉGENDE donne l'explication scientifique complète, structurée en courts paragraphes percutants, pour maximiser le temps de lecture (l'algorithme pousse alors le post).
 
 TU RENDS UNIQUEMENT un objet JSON valide (aucun texte autour, aucune balise markdown), avec EXACTEMENT ces clés :
 {
   "hook":  "l'accroche courte pour l'image (8 à 16 mots, français). Entoure LE mot/chiffre choc d'astérisques *comme ça* pour qu'il soit coloré. Une question ou une intrigue, PAS la réponse.",
   "accent":"une seule valeur parmi: green, red, amber, poison. green=conseil/bonne nouvelle · red=mythe à casser/chiffre choc/alerte · amber=nuance/ça dépend · poison=tout sujet lié à l'alcool.",
+  "seg":   "entier de 1 à 7 : nombre de segments allumés sur la barre de vie de l'image. Sujet alarmant/mythe cassé = barre basse (2-3), conseil positif = barre haute (5-6).",
   "cta":   "phrase COURTE en MAJUSCULES pour le bas de l'image, qui renvoie vers la légende (ex: LA RÉPONSE EN LÉGENDE, LE VRAI CHIFFRE EN LÉGENDE).",
-  "caption":"la légende complète en français (150 à 280 mots). Structure : (1) relance le hook et donne la réponse, (2) explique le mécanisme scientifique en 2-4 courts paragraphes concrets et sourcés (nomme l'étude/indice quand tu en as un), (3) une phrase de synthèse actionnable. Termine IMPÉRATIVEMENT par un appel à l'action vers la landing : accès en avant-première à HYDRA sur https://hydra-landing-sooty.vercel.app . Ajoute 4 à 6 hashtags pertinents en dernière ligne. Ton HYDRA : cash, précis, zéro remplissage."
+  "caption_instagram":"la légende Instagram complète en français (150 à 280 mots). Structure : (1) relance le hook et donne la réponse, (2) explique le mécanisme scientifique en 2-4 courts paragraphes concrets et sourcés (nomme l'étude/indice quand tu en as un), (3) une phrase de synthèse actionnable. Termine IMPÉRATIVEMENT par un appel à l'action vers HYDRA : accès en avant-première via le lien en bio → https://hydra-landing-sooty.vercel.app . Ajoute 4 à 6 hashtags pertinents en dernière ligne. Ton HYDRA : cash, précis, zéro remplissage.",
+  "caption_tiktok":"la légende TikTok en français (60 à 120 mots, plus punchy et rythmée que l'Instagram, phrases très courtes). Même structure condensée : réponse → mécanisme → synthèse. Termine par l'appel à l'action : accès en avant-première à HYDRA, « lien en bio » (les liens ne sont pas cliquables sur TikTok). Ajoute 3 à 5 hashtags TikTok en dernière ligne."
 }`;
 
+  // Les légendes contiennent des retours à la ligne ; si le modèle les émet
+  // bruts (non échappés) dans le JSON, on les répare avant de parser.
+  function escapeCtrlInStrings(json){
+    let out = '', inStr = false, esc = false;
+    for(const ch of json){
+      if(inStr && !esc && (ch === '\n' || ch === '\r' || ch === '\t')){
+        out += ch === '\n' ? '\\n' : ch === '\t' ? '\\t' : '';
+        continue;
+      }
+      out += ch;
+      if(esc){ esc = false; }
+      else if(ch === '\\'){ esc = true; }
+      else if(ch === '"'){ inStr = !inStr; }
+    }
+    return out;
+  }
   function extractJSON(text){
     const s = text.indexOf('{');
     const e = text.lastIndexOf('}');
     if(s === -1 || e === -1 || e < s) throw new Error('Réponse sans JSON exploitable.');
-    return JSON.parse(text.slice(s, e + 1));
+    const raw = text.slice(s, e + 1);
+    try { return JSON.parse(raw); }
+    catch(_){ return JSON.parse(escapeCtrlInStrings(raw)); }
   }
 
   async function callClaude(topic, key){
-    const messages = [{ role:'user', content:`Thème du post : ${topic}` }];
+    const messages = [{ role:'user', content:`Sujet du post : ${topic}` }];
     // Boucle serveur de web_search : si stop_reason === "pause_turn", on renvoie
     // la réponse partielle pour laisser Claude continuer ses recherches.
     for(let i = 0; i < 6; i++){
@@ -405,7 +399,7 @@ TU RENDS UNIQUEMENT un objet JSON valide (aucun texte autour, aucune balise mark
         },
         body: JSON.stringify({
           model:'claude-opus-4-8',
-          max_tokens:3000,
+          max_tokens:4000,
           tools:[{ type:'web_search_20260209', name:'web_search' }],
           system: SYSTEM_PROMPT,
           messages,
@@ -434,7 +428,7 @@ TU RENDS UNIQUEMENT un objet JSON valide (aucun texte autour, aucune balise mark
     const key   = apikeyEl.value.trim();
     const topic = topicEl.value.trim();
     if(!key){   setStatus('Colle d\'abord ta clé API Anthropic.', 'err'); return; }
-    if(!topic){ setStatus('Écris un titre / sujet de post.', 'err'); return; }
+    if(!topic){ setStatus('Écris le sujet du post.', 'err'); return; }
     localStorage.setItem(KEY_LS, key);
 
     genBtn.disabled = true;
@@ -442,12 +436,18 @@ TU RENDS UNIQUEMENT un objet JSON valide (aucun texte autour, aucune balise mark
     try {
       const raw = await callClaude(topic, key);
       const out = extractJSON(raw);
-      if(out.hook)    document.getElementById('hook').value = out.hook;
-      if(out.cta)     document.getElementById('cta').value  = String(out.cta).toUpperCase();
-      if(out.caption) document.getElementById('caption').value = out.caption;
-      if(out.accent)  setAccent(String(out.accent).toLowerCase());
-      draw();
-      setStatus('✓ Généré. Vérifie les chiffres, ajuste si besoin, puis télécharge.', 'ok');
+      if(out.hook)   state.hook = out.hook;
+      if(out.cta)    state.cta  = String(out.cta).toUpperCase();
+      if(ACCENTS[String(out.accent).toLowerCase()]) state.accent = String(out.accent).toLowerCase();
+      const seg = parseInt(out.seg, 10);
+      if(!isNaN(seg)) state.seg = Math.max(0, Math.min(8, seg));
+      document.getElementById('cap-ig').value = out.caption_instagram || out.caption || '';
+      document.getElementById('cap-tt').value = out.caption_tiktok || out.caption || '';
+      document.getElementById('hook').value = state.hook;
+      document.getElementById('cta').value  = state.cta;
+      document.getElementById('results').hidden = false;
+      drawAll();
+      setStatus('✓ Généré. Vérifie les chiffres, puis télécharge les 2 images et copie les 2 légendes.', 'ok');
     } catch(err){
       setStatus('Erreur : ' + (err.message || err), 'err');
     } finally {
@@ -457,8 +457,8 @@ TU RENDS UNIQUEMENT un objet JSON valide (aucun texte autour, aucune balise mark
 
   // Wait for the embedded font before the first draw so text isn't measured
   // against a fallback (which would shift the wrapping).
-  document.fonts.load("700 76px Chakra").then(draw).catch(draw);
-  document.fonts.ready.then(draw);
+  document.fonts.load("700 76px Chakra").then(drawAll).catch(drawAll);
+  document.fonts.ready.then(drawAll);
 </script>
 </body>
 </html>

@@ -12,38 +12,33 @@ générateur d'image IA qui réinterprète différemment à chaque fois.
 ## 🎛️ Le studio (le plus simple — aucune ligne de commande)
 
 **`post-studio.html`** — un petit logiciel autonome. **Double-clique dessus**,
-il s'ouvre dans ton navigateur (100 % hors ligne, la police HYDRA est intégrée
-dedans). Tu tapes ton accroche, tu choisis la couleur d'accent, le format
-(Instagram 4:5 / TikTok 9:16) et le nombre de segments, tu vois l'aperçu en
-direct, puis **« Télécharger l'image PNG »**. Rendu strictement identique à
-chaque fois (c'est le même code qui dessine, pas une IA qui réinterprète).
+il s'ouvre dans ton navigateur. **Une seule chose à écrire : le sujet du post.**
 
-- Mets les mots à colorer entre `*astérisques*` dans l'accroche.
-- Il y a aussi un bloc-notes « Légende » pour garder le texte du post à portée
-  (bouton **Copier** ou **Télécharger .txt**).
+1. Colle ta clé API Anthropic (une fois — mémorisée dans le navigateur).
+2. Tape le **sujet** (ex. : *Et si les « 8 verres par jour » n'avaient aucune
+   base scientifique ?*).
+3. **« ✦ Générer le post »** → Claude fait la recherche scientifique (web
+   search), trie les sources, puis produit **tout** automatiquement :
+   - l'accroche de l'image (mot choc déjà coloré),
+   - la couleur d'accent et la barre de vie (selon l'humeur du sujet),
+   - l'appel à l'action,
+   - **l'image Instagram (4:5) et l'image TikTok (9:16)**, côte à côte,
+   - **la légende Instagram et la légende TikTok** (rythmes différents),
+     chacune finissant par le CTA vers la landing
+     (`hydra-landing-sooty.vercel.app`) + hashtags.
+4. Tu télécharges les **2 images PNG** et tu **copies** (ou télécharges en
+   `.txt`) les **2 légendes**. C'est tout.
 
-### ✦ Génération auto (API Claude) — juste à partir du titre
-
-En haut du studio il y a un bloc **« Génération auto (Claude) »**. Tu colles
-**ta clé API Anthropic** (récupérée sur `console.anthropic.com`), tu tapes
-**juste le thème du post**, et **« Générer avec l'IA »** :
-
-1. lance une **recherche scientifique** (outil web search) et trie les sources,
-2. écrit l'**accroche** (question/intrigue, mot choc déjà en couleur),
-3. choisit la **couleur d'accent** selon l'humeur du sujet,
-4. écrit l'**appel à l'action** de l'image,
-5. rédige la **légende complète** optimisée rétention, finissant par un CTA vers
-   la landing (`hydra-landing-sooty.vercel.app`).
-
-Tous les champs se remplissent tout seuls et l'aperçu se redessine. Il ne reste
-qu'à **vérifier les chiffres**, ajuster, **télécharger l'image** et **copier la
-légende**.
+Un petit panneau **« Ajustements (optionnel) »** permet de retoucher
+l'accroche ou le CTA à la main si besoin — mais par défaut il n'y a aucun
+choix à faire.
 
 - La clé est stockée **uniquement dans ton navigateur** (localStorage). Elle
   n'est **jamais** écrite dans le fichier ni poussée sur GitHub — elle part
   seulement vers Anthropic au moment de l'appel.
 - Modèle utilisé : `claude-opus-4-8` avec l'outil de recherche web.
 - Le studio reste un **fichier HTML autonome** (aucun serveur, aucune install).
+- Vérifie toujours les chiffres précis avant de publier.
 
 Si tu préfères passer par moi pour écrire la légende (sans clé API), le prompt
 générique ci-dessous marche toujours.
