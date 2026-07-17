@@ -1,7 +1,7 @@
 {
   "hook_context": "La gueule de bois.",
   "hook_stop": "Mais l'eau n'y change presque rien.",
-  "hook_snapback": "Le vrai coupable est *bien pire*.",
+  "hook_snapback": "Le vrai poison vient *de toi*.",
   "accent": "poison",
   "seg": 3,
   "lines": [
@@ -10,8 +10,8 @@
     "Bois trop vite : l'usine sature et le poison *s'entasse* en toi.",
     "Mais ce n'est pas le pire. Ton corps déclenche l'*alarme incendie*.",
     "Il traite l'alcool comme un intrus et s'enflamme de partout.",
+    "Une étude a mesuré cette alarme — des marqueurs *IL-6, TNF-alpha* — plus forts le lendemain.",
     "Ce sont ces pompiers internes qui te mettent le cerveau dans le *brouillard*.",
-    "Une étude l'a mesuré : l'inflammation grimpe *le lendemain*, pas la soif.",
     "L'eau remplit le réservoir, mais elle n'éteint pas l'*incendie*."
   ],
   "answer": "Le seul vrai remède : *moins de poison* à faire traiter par ton usine.",

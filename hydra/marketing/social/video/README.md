@@ -40,15 +40,25 @@ comprend dès l'accroche pourquoi ça nous concerne), **boucles de curiosité
 rouvertes** toutes les 2-3 lignes, **spécificité** (chiffres/études nommés),
 et **zéro "slow build"** (pas d'intro molle, pas de « salut c'est HYDRA »).
 
-## 🧠 Images concrètes, zéro jargon
+## 🧩 Simplicité par la métaphore (méthode Kallaway — "context lean")
 
-Règle non négociable du prompt : chaque mécanisme est **traduit en image du
-quotidien** (le corps = usine, batterie, filtre, éponge, alarme incendie…). Un
-terme technique (acétaldéhyde, ADH, cytokines…) ne reste **jamais nu** — soit il
-est remplacé par l'image, soit il est immédiatement suivi de sa traduction
-concrète. Ex. : *« Ton foie, c'est ton unique usine de nettoyage de l'alcool. »*
-Le chiffre ou l'étude vérifiés servent de **preuve**, mais toujours emballés dans
-l'image. Objectif : compréhensible par un ado de 12 ans, à la première écoute.
+Règle **non négociable** du prompt : un terme technique (enzyme, molécule,
+acétaldéhyde, ADH, cytokines…) ne peut **jamais apparaître seul** dans le
+script — il doit être accroché à une image du quotidien que n'importe qui
+comprend en 1 seconde, soit en remplacement, soit juste à côté (le mot savant
+reste pour la crédibilité, l'image porte la compréhension). Deux réservoirs
+d'images, dans l'ordre :
+
+1. **L'univers de jeu HYDRA** (déjà familier) : barre de vie, dégâts, poison,
+   recharge, cooldown — ex. *« Ton foie, c'est ton unique usine de nettoyage
+   de l'alcool »* plutôt que *« l'enzyme ADH métabolise l'éthanol »*.
+2. Sinon, un objet/une scène du quotidien : usine, batterie, filtre, éponge,
+   alarme incendie, videur de boîte de nuit…
+
+Test appliqué à chaque ligne : **un ado de 12 ans doit tout comprendre et
+pouvoir le raconter à quelqu'un d'autre**, à la première écoute, sans pause.
+La spécificité (chiffres, études) reste utilisée comme **preuve**, mais
+toujours emballée dans l'image, jamais à sa place.
 
 ## 🎙️ Voix off calée sur la recharge (optionnel, ElevenLabs) — le mode gratuit
 
