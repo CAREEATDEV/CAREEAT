@@ -92,9 +92,26 @@ C'est ce qui permet aussi la durée plus longue (~60 s au lieu de ~13-18 s) :
 allonger le fond ne coûte rien puisqu'il n'est fait qu'une fois.
 
 ⚠️ Ça ne change rien au coût de l'appel à l'API Claude (recherche web +
-rédaction) — ce coût-là vient uniquement de cet appel, pas du rendu vidéo. Si
-tu veux réduire spécifiquement ce coût-là (moins de recherche web, modèle
-moins cher…), dis-le-moi, c'est un réglage indépendant.
+rédaction) — ce coût-là vient uniquement de cet appel, pas du rendu vidéo.
+
+### 💸 Réduire le coût par vidéo (modèle Claude)
+
+Le prix vient à ~90 % de l'appel Claude. Deux leviers, tous deux intégrés :
+
+- **Choix du modèle** (menu déroulant dans le studio, ou `--modele` en CLI) :
+
+  | Modèle | Prix (entrée / sortie /Mtok) | Pour ce workflow |
+  |---|---|---|
+  | **Sonnet 4.6** (défaut) | $3 / $15 | **Recommandé** — qualité quasi Opus, ~40 % moins cher |
+  | **Haiku 4.5** | $1 / $5 | Le moins cher ; ok mais moins fiable sur la nuance scientifique / le JSON strict |
+  | **Opus 4.8** | $5 / $25 | Le plus puissant, mais overkill ici |
+
+  La recherche web fournit les faits ; le modèle ne fait que **synthétiser +
+  rédiger en français**, donc Sonnet suffit largement.
+
+- **Recherches web plafonnées à 4 par vidéo** (`WEB_SEARCH_MAX_USES` dans
+  `render-video.js`) : chaque recherche est facturée **et** renvoie tout le
+  contexte accumulé au modèle → les plafonner coupe les deux coûts d'un coup.
 
 ## ⭐ Le plus simple : l'interface (zéro terminal par vidéo)
 
@@ -139,6 +156,9 @@ npx playwright install chromium   # le navigateur (sert uniquement au 1er rendu 
 # bash/zsh (Mac/Linux) :  export ANTHROPIC_API_KEY="sk-ant-…"
 
 node render-video.js --sujet "Le mythe des 8 verres d'eau par jour"
+
+# modèle moins cher (défaut = sonnet) : --modele sonnet|haiku|opus
+node render-video.js --sujet "…" --modele haiku
 ```
 
 Claude fait la recherche scientifique (web search), écrit hook + lignes +

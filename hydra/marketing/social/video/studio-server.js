@@ -74,6 +74,7 @@ const server = http.createServer(async (req, res) => {
         if (!body.key || !body.key.trim()) throw new Error('Colle ta clé API Anthropic.');
         opts.topic = body.topic.trim();
         opts.key = body.key.trim();
+        if (body.claudeModel) opts.claudeModel = String(body.claudeModel).trim();
       }
       if (body.elevenLabsKey && body.voiceId) {
         opts.elevenLabsKey = String(body.elevenLabsKey).trim();

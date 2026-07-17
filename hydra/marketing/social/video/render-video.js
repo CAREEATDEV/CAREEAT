@@ -176,7 +176,29 @@ function extractJSON(text) {
   catch (_) { return JSON.parse(escapeCtrlInStrings(raw)); }
 }
 
-async function callClaude(topic, key) {
+// Modèles Claude autorisés (alias court → identifiant API). Sonnet = défaut :
+// meilleur rapport qualité/prix pour écrire le script (la recherche web fournit
+// les faits, le modèle ne fait que synthétiser + rédiger en français).
+const CLAUDE_MODELS = {
+  sonnet: 'claude-sonnet-4-6', // $3 / $15  — recommandé
+  haiku: 'claude-haiku-4-5',   // $1 / $5   — le moins cher
+  opus: 'claude-opus-4-8',     // $5 / $25  — le plus puissant (coûteux)
+};
+const DEFAULT_CLAUDE_MODEL = CLAUDE_MODELS.sonnet;
+// Plafond de recherches web : chaque recherche est facturée ET renvoie tout le
+// contexte accumulé au modèle → limiter = gros levier de coût.
+const WEB_SEARCH_MAX_USES = 4;
+
+function resolveClaudeModel(m) {
+  if (!m) return DEFAULT_CLAUDE_MODEL;
+  const key = String(m).trim().toLowerCase();
+  if (CLAUDE_MODELS[key]) return CLAUDE_MODELS[key];
+  if (/^claude-/.test(key)) return String(m).trim();
+  return DEFAULT_CLAUDE_MODEL;
+}
+
+async function callClaude(topic, key, model) {
+  const resolvedModel = resolveClaudeModel(model);
   const messages = [{ role: 'user', content: `Sujet de la vidéo : ${topic}` }];
   for (let i = 0; i < 6; i++) {
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -187,9 +209,9 @@ async function callClaude(topic, key) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-opus-4-8',
+        model: resolvedModel,
         max_tokens: 5000,
-        tools: [{ type: 'web_search_20260209', name: 'web_search' }],
+        tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: WEB_SEARCH_MAX_USES }],
         system: SYSTEM_PROMPT,
         messages,
       }),
@@ -270,8 +292,9 @@ async function generateVideo(opts) {
     if (!opts.key) {
       throw new Error('Clé API manquante. Elle ne doit JAMAIS être écrite dans un fichier du repo.');
     }
-    log('⏳ Recherche scientifique + écriture (Claude)… 30-60 s');
-    content = normalizeContent(extractJSON(await callClaude(String(opts.topic), opts.key)));
+    const model = resolveClaudeModel(opts.claudeModel);
+    log(`⏳ Recherche scientifique + écriture (${model})… 30-60 s`);
+    content = normalizeContent(extractJSON(await callClaude(String(opts.topic), opts.key, model)));
     slugBase = slugify(opts.slug || opts.topic);
   } else {
     throw new Error('generateVideo : fournis content, ou topic + key.');
@@ -695,6 +718,8 @@ async function main() {
   } else if (args.sujet) {
     opts.topic = String(args.sujet);
     opts.key = args.key || process.env.ANTHROPIC_API_KEY || process.env.HYDRA_ANTHROPIC_KEY;
+    // Modèle Claude : --modele sonnet|haiku|opus (défaut : sonnet). Réduit le coût.
+    opts.claudeModel = args.modele || args.model || process.env.HYDRA_CLAUDE_MODEL;
   } else {
     console.error('Usage : node render-video.js --sujet "…"   (ou --json contenu.json)');
     process.exit(1);
@@ -712,7 +737,10 @@ async function main() {
   console.log('   ' + r.contentPath + '  (éditable → re-rendre avec --json)');
 }
 
-module.exports = { generateVideo, normalizeContent, callClaude, extractJSON, slugify };
+module.exports = {
+  generateVideo, normalizeContent, callClaude, extractJSON, slugify,
+  resolveClaudeModel, CLAUDE_MODELS, DEFAULT_CLAUDE_MODEL,
+};
 
 if (require.main === module) {
   main().catch((e) => { console.error('Erreur :', e.message || e); process.exit(1); });

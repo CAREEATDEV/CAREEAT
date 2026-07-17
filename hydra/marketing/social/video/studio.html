@@ -50,6 +50,7 @@
   .copybtn{background:transparent;border:1px solid var(--line);color:var(--text);
     border-radius:8px;padding:9px 12px;font-family:inherit;font-size:11px;letter-spacing:2px;
     cursor:pointer;margin-top:8px;text-transform:uppercase;}
+  .btnrow{display:flex;gap:8px;flex-wrap:wrap;}
   .dl{display:inline-block;background:var(--green);color:#000;text-decoration:none;
     border-radius:10px;padding:13px 16px;font-weight:700;font-size:13px;letter-spacing:1.5px;
     text-transform:uppercase;text-align:center;}
@@ -65,6 +66,9 @@
     width:100%;background:#000;border:1px solid var(--line);border-radius:10px;
     color:var(--text);font-family:inherit;font-size:15px;padding:12px 14px;letter-spacing:.3px;}
   input[type=text]:focus{outline:none;border-color:var(--green);}
+  select{width:100%;background:#000;border:1px solid var(--line);border-radius:10px;
+    color:var(--text);font-family:inherit;font-size:15px;padding:12px 14px;cursor:pointer;}
+  select:focus{outline:none;border-color:var(--green);}
 </style>
 </head>
 <body>
@@ -83,6 +87,18 @@
       <textarea id="topic" placeholder="Ex. : Pourquoi tu es déjà déshydraté au réveil"></textarea>
       <div class="hint">Claude fait la recherche, écrit l'accroche + les lignes à l'écran +
         la réponse + les 2 légendes, et le studio rend la vidéo verticale.</div>
+    </div>
+
+    <div>
+      <label>Modèle Claude</label>
+      <select id="model">
+        <option value="sonnet" selected>Sonnet 4.6 — recommandé ($3/$15)</option>
+        <option value="haiku">Haiku 4.5 — le moins cher ($1/$5)</option>
+        <option value="opus">Opus 4.8 — le plus puissant ($5/$25)</option>
+      </select>
+      <div class="hint">La recherche web fournit les faits ; le modèle synthétise et rédige.
+        <b>Sonnet</b> suffit largement et coûte ~40 % de moins qu'Opus. Recherches web
+        plafonnées à 4 par vidéo pour limiter les coûts.</div>
     </div>
 
     <details class="adv">
@@ -118,12 +134,18 @@
       <div class="capblock" style="margin-top:16px">
         <label>Légende Instagram</label>
         <textarea id="cap-ig" style="min-height:120px"></textarea>
-        <button class="copybtn" data-copy="cap-ig">Copier</button>
+        <div class="btnrow">
+          <button class="copybtn" data-copy="cap-ig">Copier</button>
+          <button class="copybtn" data-dl="cap-ig" data-name="instagram">⬇ Télécharger</button>
+        </div>
       </div>
       <div class="capblock">
         <label>Légende TikTok</label>
         <textarea id="cap-tt" style="min-height:100px"></textarea>
-        <button class="copybtn" data-copy="cap-tt">Copier</button>
+        <div class="btnrow">
+          <button class="copybtn" data-copy="cap-tt">Copier</button>
+          <button class="copybtn" data-dl="cap-tt" data-name="tiktok">⬇ Télécharger</button>
+        </div>
       </div>
     </div>
   </div>
@@ -138,6 +160,10 @@
   const KEY_LS = 'hydra.anthropic.key';
   const EL_KEY_LS = 'hydra.elevenlabs.key';
   const EL_VOICE_LS = 'hydra.elevenlabs.voiceid';
+  const MODEL_LS = 'hydra.claude.model';
+  $('model').value = localStorage.getItem(MODEL_LS) || 'sonnet';
+  $('model').addEventListener('change', () =>
+    localStorage.setItem(MODEL_LS, $('model').value));
   $('apikey').value = localStorage.getItem(KEY_LS) || '';
   $('apikey').addEventListener('change', () =>
     localStorage.setItem(KEY_LS, $('apikey').value.trim()));
@@ -156,10 +182,28 @@
   }
   function errLog(msg){ logEl.classList.add('err'); logEl.textContent = msg; }
 
+  let currentSlug = 'hydra';
+
   document.querySelectorAll('[data-copy]').forEach(btn =>
     btn.addEventListener('click', () => {
       navigator.clipboard.writeText($(btn.dataset.copy).value || '');
       const old = btn.textContent; btn.textContent = '✓ Copié';
+      setTimeout(() => { btn.textContent = old; }, 1200);
+    }));
+
+  document.querySelectorAll('[data-dl]').forEach(btn =>
+    btn.addEventListener('click', () => {
+      const text = $(btn.dataset.dl).value || '';
+      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'hydra-' + currentSlug + '-legende-' + btn.dataset.name + '.txt';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      const old = btn.textContent; btn.textContent = '✓ Téléchargé';
       setTimeout(() => { btn.textContent = old; }, 1200);
     }));
 
@@ -169,6 +213,8 @@
     if(!key){ errLog('Colle d\'abord ta clé API Anthropic.'); return; }
     if(!topic){ errLog('Écris un sujet de vidéo.'); return; }
     localStorage.setItem(KEY_LS, key);
+    const claudeModel = $('model').value;
+    localStorage.setItem(MODEL_LS, claudeModel);
     const elKey = $('elkey').value.trim();
     const voiceId = $('voiceid').value.trim();
 
@@ -180,7 +226,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          topic, key,
+          topic, key, claudeModel,
           ...(elKey && voiceId ? { elevenLabsKey: elKey, voiceId } : {}),
         }),
       });
@@ -213,6 +259,7 @@
       $('dlnote').innerHTML = done.isMp4
         ? 'MP4 prêt pour Instagram et TikTok. Ajoute un son tendance au moment de poster.'
         : '⚠️ Sortie WebM (ffmpeg-static manquant). Fais <code>npm install</code> pour du MP4.';
+      currentSlug = done.slug || 'hydra';
       $('cap-ig').value = done.captionIg || '';
       $('cap-tt').value = done.captionTt || '';
       $('results').hidden = false;
