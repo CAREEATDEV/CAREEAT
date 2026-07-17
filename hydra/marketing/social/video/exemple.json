@@ -5,18 +5,18 @@
   "accent": "poison",
   "seg": 3,
   "lines": [
-    "Son nom : l'*acétaldéhyde*. Rien à voir avec la déshydratation.",
-    "Ton foie transforme l'alcool en acétaldéhyde via l'enzyme *ADH*.",
-    "Ce composé est bien *plus toxique* que l'alcool lui-même.",
-    "Bois trop vite, l'enzyme ALDH est débordée : il *s'accumule*.",
-    "Mais ce n'est pas le pire. Deuxième mécanisme : l'*inflammation*.",
-    "Ton corps traite l'alcool comme un poison et s'enflamme.",
-    "Une étude a mesuré des cytokines élevées — *IL-6, TNF-alpha* — le lendemain.",
-    "C'est elle qui cause le *brouillard mental*, pas le manque d'eau."
+    "Ton foie, c'est ton unique *usine* de nettoyage de l'alcool.",
+    "Cette usine le découpe en un déchet *deux fois plus toxique*.",
+    "Bois trop vite : l'usine sature et le poison *s'entasse* en toi.",
+    "Mais ce n'est pas le pire. Ton corps déclenche l'*alarme incendie*.",
+    "Il traite l'alcool comme un intrus et s'enflamme de partout.",
+    "Ce sont ces pompiers internes qui te mettent le cerveau dans le *brouillard*.",
+    "Une étude l'a mesuré : l'inflammation grimpe *le lendemain*, pas la soif.",
+    "L'eau remplit le réservoir, mais elle n'éteint pas l'*incendie*."
   ],
-  "answer": "Le seul vrai remède, c'est *moins de poison* à traiter pour ton foie.",
+  "answer": "Le seul vrai remède : *moins de poison* à faire traiter par ton usine.",
   "recharge_line": "Là, ta barre est à sec — on recharge, un grand verre d'eau.",
   "cta_video": "WAITLIST OUVERTE · LIEN EN BIO",
-  "caption_instagram": "La gueule de bois n'est pas une histoire de déshydratation. L'explication complète (acétaldéhyde, inflammation, les études) est dans la vidéo.\n\nHYDRA transforme ton hydratation en jeu — accès en avant-première : lien en bio → https://hydra-landing-sooty.vercel.app\n\n#gueuledebois #alcool #science #hydratation #sante",
-  "caption_tiktok": "Le vrai mécanisme de la gueule de bois, expliqué en 1 minute. Lien en bio pour la waitlist HYDRA.\n#gueuledebois #science #alcool"
+  "caption_instagram": "La gueule de bois n'est pas une histoire de déshydratation. Ton foie est une usine débordée, ton corps un incendie interne — l'explication complète est dans la vidéo.\n\nHYDRA transforme ton hydratation en jeu — accès en avant-première : lien en bio → https://hydra-landing-sooty.vercel.app\n\n#gueuledebois #alcool #science #hydratation #sante",
+  "caption_tiktok": "Pourquoi l'eau ne sauve pas ta gueule de bois, expliqué en 1 minute. Lien en bio pour la waitlist HYDRA.\n#gueuledebois #science #alcool"
 }

@@ -40,6 +40,16 @@ comprend dès l'accroche pourquoi ça nous concerne), **boucles de curiosité
 rouvertes** toutes les 2-3 lignes, **spécificité** (chiffres/études nommés),
 et **zéro "slow build"** (pas d'intro molle, pas de « salut c'est HYDRA »).
 
+## 🧠 Images concrètes, zéro jargon
+
+Règle non négociable du prompt : chaque mécanisme est **traduit en image du
+quotidien** (le corps = usine, batterie, filtre, éponge, alarme incendie…). Un
+terme technique (acétaldéhyde, ADH, cytokines…) ne reste **jamais nu** — soit il
+est remplacé par l'image, soit il est immédiatement suivi de sa traduction
+concrète. Ex. : *« Ton foie, c'est ton unique usine de nettoyage de l'alcool. »*
+Le chiffre ou l'étude vérifiés servent de **preuve**, mais toujours emballés dans
+l'image. Objectif : compréhensible par un ado de 12 ans, à la première écoute.
+
 ## 🎙️ Voix off calée sur la recharge (optionnel, ElevenLabs) — le mode gratuit
 
 Dans le studio, ouvre **« 🎙️ Voix off — ElevenLabs (optionnel) »**, colle ta
