@@ -1,18 +1,21 @@
 {
-  "hook": "Boire de l'eau *ne guérit pas* la gueule de bois. Pourquoi ?",
+  "hook_context": "La gueule de bois.",
+  "hook_stop": "Mais l'eau n'y change presque rien.",
+  "hook_snapback": "Le vrai coupable est *bien pire*.",
   "accent": "poison",
   "seg": 3,
   "lines": [
-    "Le vrai coupable, c'est l'*acétaldéhyde* — pas la déshydratation.",
+    "Son nom : l'*acétaldéhyde*. Rien à voir avec la déshydratation.",
     "Ton foie transforme l'alcool en acétaldéhyde via l'enzyme *ADH*.",
     "Ce composé est bien *plus toxique* que l'alcool lui-même.",
-    "Si tu bois trop vite, l'enzyme ALDH est débordée : il *s'accumule*.",
-    "Deuxième mécanisme : l'*inflammation*. Ton corps réagit comme à un poison.",
-    "Une étude a mesuré des cytokines élevées — *IL-6, TNF-alpha* — en gueule de bois.",
-    "C'est cette inflammation qui cause le *brouillard mental*.",
-    "Et la déshydratation ? *Aucune corrélation* nette avec la sévérité."
+    "Bois trop vite, l'enzyme ALDH est débordée : il *s'accumule*.",
+    "Mais ce n'est pas le pire. Deuxième mécanisme : l'*inflammation*.",
+    "Ton corps traite l'alcool comme un poison et s'enflamme.",
+    "Une étude a mesuré des cytokines élevées — *IL-6, TNF-alpha* — le lendemain.",
+    "C'est elle qui cause le *brouillard mental*, pas le manque d'eau."
   ],
   "answer": "Le seul vrai remède, c'est *moins de poison* à traiter pour ton foie.",
+  "recharge_line": "Là, ta barre est à sec — on recharge, un grand verre d'eau.",
   "cta_video": "WAITLIST OUVERTE · LIEN EN BIO",
   "caption_instagram": "La gueule de bois n'est pas une histoire de déshydratation. L'explication complète (acétaldéhyde, inflammation, les études) est dans la vidéo.\n\nHYDRA transforme ton hydratation en jeu — accès en avant-première : lien en bio → https://hydra-landing-sooty.vercel.app\n\n#gueuledebois #alcool #science #hydratation #sante",
   "caption_tiktok": "Le vrai mécanisme de la gueule de bois, expliqué en 1 minute. Lien en bio pour la waitlist HYDRA.\n#gueuledebois #science #alcool"

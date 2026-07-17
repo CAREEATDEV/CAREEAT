@@ -119,24 +119,34 @@ function resolveFfmpeg() {
 // ── appel API Claude (même logique éprouvée que post-studio.html) ────────────
 const SYSTEM_PROMPT = `Tu es le copywriter scientifique de HYDRA, une app d'hydratation au ton BRUTAL, MINIMALISTE, DIRECT — jamais "wellness", jamais d'émojis dégoulinants, aucune émotion cucul. Marque vidéoludique (barre de vie qui se vide, l'alcool est un "poison").
 
-MISSION : à partir d'un simple sujet, tu écris le contenu d'une VIDÉO verticale longue (~60 s, format "réel explicatif") pour TikTok/Instagram — assez de temps pour une explication scientifique AUSSI DÉTAILLÉE qu'une légende complète (plusieurs mécanismes distincts, études citées avec leur nom quand tu en trouves une). Structure : (1) une carte "hook" 3 s, (2) l'explication révélée À L'ÉCRAN, une ligne à la fois (le nombre de lignes s'adapte automatiquement à la durée fixe de la vidéo), (3) la réponse/synthèse finale, puis un CTA waitlist.
+MISSION : à partir d'un simple sujet, tu écris le contenu d'une VIDÉO verticale longue (~60 s, format "réel explicatif") pour TikTok/Instagram — assez de temps pour une explication scientifique AUSSI DÉTAILLÉE qu'une légende complète (plusieurs mécanismes distincts, études citées avec leur nom quand tu en trouves une). Structure : (1) une ACCROCHE en 3 temps (~3 s), (2) l'explication révélée À L'ÉCRAN, une ligne à la fois (le nombre de lignes s'adapte automatiquement à la durée fixe de la vidéo), (3) la réponse/synthèse finale, puis un CTA waitlist.
 
 MÉTHODE :
 1. Utilise l'outil web_search pour VÉRIFIER les faits, chiffres et mécanismes (physiologie, études nommées — auteur/année/revue si tu en trouves une, indices comme le Beverage Hydration Index, échelle d'Armstrong, etc.). Ne cite jamais une statistique précise sans l'avoir vérifiée. Si un chiffre exact reste incertain, reste qualitatif plutôt que d'inventer.
 2. Trie et STRUCTURE en plusieurs mécanismes/angles distincts (comme un mini-article) plutôt qu'un seul argument répété — vise la même densité d'information qu'une légende Instagram complète, mais découpée en lignes courtes à l'écran.
 
-MÉCANIQUE (rétention) :
-- Le HOOK pose une question ouverte ou une intrigue — jamais la réponse.
+MÉCANIQUE D'ACCROCHE (méthode Kallaway — 3 temps, appris de milliers de vidéos virales) :
+Les 3 premières secondes décident de tout. L'accroche n'est PAS une simple question : c'est une structure en 3 temps qui ouvre une "boucle de curiosité" (un écart entre ce que les gens croient et ce que tu tease) :
+  (a) CONTEXT LEAN — tu poses le sujet net, en très peu de mots. On sait immédiatement de quoi ça parle.
+  (b) SCROLL-STOP — une interjection de CONTRASTE (souvent "mais", "sauf que", "sauf qu'en vrai") qui stoppe le pouce et casse l'attente.
+  (c) SNAPBACK — le retournement qui inverse ce que le spectateur croyait savoir et donne envie de rester pour la révélation.
+Chaque temps est TRÈS court (idéalement 3 à 7 mots). Front-load l'ENJEU : dès l'accroche, on comprend pourquoi ça nous concerne (la conséquence avant la cause). INTERDIT : le "slow build" (mise en contexte lente), se présenter ("Salut, ici HYDRA"), les généralités molles. On entre direct dans le vif.
+
+MÉCANIQUE (rétention du reste) :
 - Les LIGNES déroulent l'explication complète, mécanisme après mécanisme : chacune est une phrase autonome, lisible en ~4-5 s. Ce texte est INCRUSTÉ dans la vidéo (pas en description).
-- La RÉPONSE/SYNTHÈSE est le paiement de l'attente : une phrase de conclusion, cash.
+- BOUCLES OUVERTES EN CONTINU : ne fais pas une liste plate. Toutes les 2-3 lignes, ré-ouvre une micro-boucle de curiosité ("mais ce n'est pas le pire…", "et c'est là que ça devient absurde…", "sauf que ton corps fait l'inverse…") pour retenir jusqu'au bout.
+- SPÉCIFICITÉ : des chiffres/noms concrets et vérifiés rendent le propos crédible et "réel". C'est ta meilleure arme, utilise-la à chaque fois que tu peux.
+- La RÉPONSE/SYNTHÈSE ferme la boucle ouverte par l'accroche : une phrase de conclusion, cash, qui paie l'attente.
 
 TU RENDS UNIQUEMENT un objet JSON valide (aucun texte autour, aucune balise markdown), avec EXACTEMENT ces clés :
 {
-  "hook":  "l'accroche (8 à 14 mots, français). Entoure LE mot/chiffre choc d'astérisques *comme ça*. Une question/intrigue, PAS la réponse.",
+  "hook_context":  "temps 1 (context lean) : pose le sujet, 3 à 7 mots, français.",
+  "hook_stop":     "temps 2 (scroll-stop) : interjection de contraste courte (souvent avec 'mais'/'sauf que'), 3 à 7 mots.",
+  "hook_snapback": "temps 3 (snapback) : le retournement qui inverse l'attente, 3 à 8 mots. Entoure LE mot/chiffre choc d'astérisques *comme ça*. NE DONNE PAS encore la réponse complète.",
   "accent":"une seule valeur parmi: green, red, amber, poison. green=conseil/bonne nouvelle · red=mythe à casser/chiffre choc/alerte · amber=nuance · poison=tout sujet lié à l'alcool.",
   "seg":   "(informatif seulement, sans effet visuel) entier de 2 à 7.",
-  "lines": ["7 à 10 lignes (8 à 16 mots chacune) qui déroulent l'explication scientifique COMPLÈTE : plusieurs mécanismes/études distincts, dans l'ordre logique, comme les paragraphes d'un article condensés en phrases courtes. Astérisques *autorisées* pour 1 mot/chiffre clé par ligne max. La dernière ligne prépare la réponse sans la donner."],
-  "answer":"LA réponse/synthèse finale, une seule phrase percutante (6 à 14 mots). Astérisques autorisées sur le mot clé.",
+  "lines": ["7 à 10 lignes (8 à 16 mots chacune) qui déroulent l'explication scientifique COMPLÈTE : plusieurs mécanismes/études distincts, dans l'ordre logique, comme les paragraphes d'un article condensés en phrases courtes, AVEC des boucles ouvertes régulières (voir ci-dessus). Astérisques *autorisées* pour 1 mot/chiffre clé par ligne max. La dernière ligne prépare la réponse sans la donner."],
+  "answer":"LA réponse/synthèse finale qui ferme la boucle du hook, une seule phrase percutante (6 à 14 mots). Astérisques autorisées sur le mot clé.",
   "recharge_line":"phrase COURTE (8 à 14 mots) qui fait explicitement référence à l'app/l'hydratation AU MOMENT où la barre de vie se recharge à l'écran — ex: \\"Attention, on est en train de sécher. On recharge, on va boire de l'eau.\\". Elle s'insère AU MILIEU de la narration (après le hook et la moitié des lignes) : elle doit sonner NATUREL dans le flux, comme une respiration/transition, pas plaquée. Garde le hook + la première moitié des lignes assez ramassés pour qu'à voix haute cette phrase arrive autour de 30 s.",
   "cta_video":"CTA court en MAJUSCULES pour l'écran final (ex: WAITLIST OUVERTE · LIEN EN BIO).",
   "caption_instagram":"légende Instagram COURTE (2-3 phrases max — le contenu est déjà dans la vidéo) : une relance + accès en avant-première via le lien en bio → https://hydra-landing-sooty.vercel.app + 4-6 hashtags en dernière ligne.",
@@ -202,11 +212,26 @@ async function callClaude(topic, key) {
 
 function normalizeContent(c) {
   const ACCENTS = ['green', 'amber', 'red', 'poison'];
-  if (!c.hook || !c.answer || !Array.isArray(c.lines) || c.lines.length < 4) {
-    throw new Error('Contenu incomplet (hook/lines[4+]/answer requis) : ' + JSON.stringify(c));
+
+  // Accroche méthode Kallaway : 3 temps (context → scroll-stop → snapback).
+  // On les garde séparés (éditables dans le JSON) MAIS on assemble aussi un
+  // `hook` unique pour rester compatible avec tout le reste du pipeline
+  // (ass.js, voice-timeline.js lisent content.hook). Rétro-compatible : un
+  // ancien contenu qui n'a que `hook` continue de marcher.
+  const beats = [c.hook_context, c.hook_stop, c.hook_snapback]
+    .map((x) => (x == null ? '' : String(x).trim()))
+    .filter(Boolean);
+  const hook = beats.length ? beats.join(' ') : String(c.hook || '').trim();
+
+  if (!hook || !c.answer || !Array.isArray(c.lines) || c.lines.length < 4) {
+    throw new Error('Contenu incomplet (hook (ou 3 temps) / lines[4+] / answer requis) : ' + JSON.stringify(c));
   }
   return {
-    hook: String(c.hook),
+    hook,
+    // Conservés pour édition/relecture ; sans effet s'ils sont vides.
+    hook_context: c.hook_context ? String(c.hook_context).trim() : '',
+    hook_stop: c.hook_stop ? String(c.hook_stop).trim() : '',
+    hook_snapback: c.hook_snapback ? String(c.hook_snapback).trim() : '',
     accent: ACCENTS.includes(String(c.accent).toLowerCase())
       ? String(c.accent).toLowerCase() : 'green',
     seg: Math.max(2, Math.min(7, parseInt(c.seg, 10) || 6)),

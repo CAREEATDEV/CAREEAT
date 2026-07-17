@@ -9,7 +9,8 @@ mécanismes, études citées).
 
 Structure de chaque vidéo :
 
-1. **0-3 s** — le hook (la question/intrigue) pour stopper le scroll.
+1. **0-3 s** — l'accroche, écrite selon la **méthode Kallaway en 3 temps**
+   (voir ci-dessous) pour stopper le scroll et ouvrir une boucle de curiosité.
 2. **Milieu (~45 s)** — l'explication complète révélée **une ligne à la fois
    à l'écran** (chaque ligne remplace la précédente, comme un sous-titre,
    7 à 10 lignes) ; au milieu, la **démo produit** : la barre de vie draine
@@ -17,6 +18,27 @@ Structure de chaque vidéo :
    (« TU REBOIS. ») — le rappel visuel de l'app, ~3 s.
 3. **Fin (~8,5 s)** — la **réponse/synthèse** en gros (couleur d'accent),
    puis CTA **waitlist** + marque HYDRA.
+
+## 🪝 L'accroche en 3 temps (méthode Kallaway)
+
+Claude n'écrit plus une simple question : l'accroche suit une structure en
+3 temps très courts (chacun 3-8 mots), reprise du framework de Kane Kallaway
+(analyse de milliers de vidéos virales) :
+
+- **`hook_context`** — pose le sujet net (ex. *« La gueule de bois. »*).
+- **`hook_stop`** — une interjection de **contraste** qui stoppe le pouce, souvent
+  avec « mais »/« sauf que » (ex. *« Mais l'eau n'y change presque rien. »*).
+- **`hook_snapback`** — le **retournement** qui inverse l'attente et ouvre la
+  boucle de curiosité (ex. *« Le vrai coupable est bien pire. »*).
+
+Les 3 temps sont **assemblés automatiquement** en une accroche unique à l'écran
+(et lue d'un trait en voix off). Ils restent séparés dans le `…-contenu.json`
+pour que tu puisses en retoucher un seul et re-rendre (`--json`).
+
+Le reste du script applique aussi ses principes : **enjeu front-loadé** (on
+comprend dès l'accroche pourquoi ça nous concerne), **boucles de curiosité
+rouvertes** toutes les 2-3 lignes, **spécificité** (chiffres/études nommés),
+et **zéro "slow build"** (pas d'intro molle, pas de « salut c'est HYDRA »).
 
 ## 🎙️ Voix off calée sur la recharge (optionnel, ElevenLabs) — le mode gratuit
 
@@ -138,7 +160,9 @@ moment de poster, c'est meilleur pour le reach.
 node render-video.js --json hydra-video-le-mythe-…-contenu.json
 ```
 
-Champs du JSON : `hook`, `accent` (`green|amber|red|poison`), `lines` (7-10
+Champs du JSON : l'accroche en 3 temps `hook_context` / `hook_stop` /
+`hook_snapback` (assemblés en un `hook` unique — un ancien JSON n'ayant que
+`hook` reste accepté), `accent` (`green|amber|red|poison`), `lines` (7-10
 lignes), `answer`, `recharge_line` (phrase dite pile quand la barre se recharge,
 mode voix off), `cta_video`, `caption_instagram`,
 `caption_tiktok`. Les `*astérisques*` colorent un mot en accent. (Le champ
