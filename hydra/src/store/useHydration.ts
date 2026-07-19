@@ -245,7 +245,7 @@ export const useHydration = create<HydraState>()(
         });
         await reloadWidgetTimelines();
         await updateAndroidWidgets(events, profile, widget);
-        await rescheduleNotifications(events, profile);
+        await rescheduleNotifications(events, profile, widget);
       },
 
       clearDeleted(keys) {

@@ -9,12 +9,18 @@ export interface WidgetSettings {
   preferredFormat: WidgetFormat;
   showAlcoholOnMedium: boolean;
   defaultWaterMl: number; // contenant EAU par défaut (mL)
+  // Rappels programmés pour chaque verre encore nécessaire pour atteindre
+  // l'objectif du jour (en plus des alertes ambre/rouge, jamais à leur place).
+  // Optionnel pour rester compatible avec les profils existants (voir
+  // scheduler.ts : traité comme activé tant qu'il n'est pas explicitement à false).
+  glassRemindersEnabled?: boolean;
 }
 
 export const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
   preferredFormat: 'lock',
   showAlcoholOnMedium: true,
   defaultWaterMl: 250,
+  glassRemindersEnabled: true,
 };
 
 export const WATER_CONTAINERS = [

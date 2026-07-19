@@ -110,7 +110,9 @@ export function WidgetsScreen() {
   const { user, signOut, deleteAccount } = useAuth();
   const [mode, setMode] = useState<PreviewMode>('live');
   const [guide, setGuide] = useState<GuideTarget | null>(null);
-  const [notif, setNotif] = useState(true);
+  // Traité comme activé tant qu'il n'est pas explicitement désactivé — même
+  // repli que scheduler.ts pour rester compatible avec les profils existants.
+  const glassRemindersOn = widget.glassRemindersEnabled !== false;
 
   // ── Contenant eau : préréglages + volume personnalisé ──────────────────────
   const WATER_MIN = 50;
@@ -375,17 +377,22 @@ export function WidgetsScreen() {
 
         {/* ————— NOTIFS ————— */}
         <Text style={styles.section}>NOTIFICATIONS</Text>
-        <Row label="ACTIVER">
+        <Row label="RAPPELS PAR VERRE">
           <View style={{ alignItems: 'flex-end' }}>
             <Switch
-              value={notif}
+              value={glassRemindersOn}
               onValueChange={async (v) => {
-                setNotif(v);
                 if (v) await ensurePermissions();
+                await updateWidget({ glassRemindersEnabled: v });
               }}
             />
           </View>
         </Row>
+        <Text style={styles.miniLabel}>
+          Un rappel programmé pour chaque verre encore nécessaire aujourd'hui,
+          étalé jusqu'à ton coucher ({profile.sleepStartHour} h). Les alertes
+          zone ambre/rouge restent actives dans tous les cas.
+        </Text>
 
         {/* ————— COMPTE ————— */}
         <Text style={styles.section}>COMPTE</Text>
