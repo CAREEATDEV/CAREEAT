@@ -32,24 +32,23 @@ tier gratuit Supabase.
 - [x] Abonnement auto-renouvelable créé dans **App Store Connect**.
 - [x] **Testé en sandbox** sur 2 iPhones différents (testeur bac à sable).
 - [x] Rappels de notification (zone ambre/rouge + rappels par verre, en plus).
+- [x] **Politique de confidentialité HYDRA** déployée :
+      `https://hydra-landing-sooty.vercel.app/privacy.html`
+- [x] **Page support** déployée :
+      `https://hydra-landing-sooty.vercel.app/support.html`
+- [x] **Compte bancaire/fiscal Apple** — déjà en règle via le même compte
+      Apple Developer/App Store Connect qu'utilisé pour CAREEAT (déjà
+      accepté). Rien à refaire ici.
 
 ---
 
 ## 🔜 CE QUI RESTE — dans l'ordre
 
-### 🔴 Bloquant #1 — Pages légales (💻 Claude écrit + déploie)
-- [ ] **Politique de confidentialité HYDRA**, hébergée à une URL fixe.
-- [ ] **Page support** (contact/aide), hébergée à une URL fixe.
-  *(Aucune des deux n'existe encore sur la landing — Apple les exige
-  obligatoirement dans la fiche App Store Connect. Rien d'autre ne les
-  bloque : je peux les écrire et les déployer dès que tu me donnes le feu vert.)*
-
-### 🔴 Bloquant #2 — Compte bancaire/fiscal (📱 toi seul, non délégable)
-- [ ] Accord **« Paid Applications »** signé dans App Store Connect.
-- [ ] **Coordonnées bancaires** + **infos fiscales** renseignées.
-  *(Sans ça, Apple ne peut reverser aucun paiement — l'app ne peut pas passer
-  en vente, même si tout le reste est prêt. Si c'est déjà fait, dis-le-moi,
-  je le coche.)*
+### ✅ Texte de la fiche App Store Connect — prêt
+- [x] **Nom, sous-titre, description, mots-clés, catégorie, classification
+      d'âge, étiquettes de confidentialité** — tout rédigé, prêt à coller :
+      voir **`hydra/APPSTORE_LISTING.md`**.
+- [ ] Toi : colle ce contenu dans App Store Connect → onglet App Store.
 
 ### Phase C — Assets restants
 - [ ] **Icône 1024×1024 définitive** — l'actuelle (`assets/icon.png`) est-elle
@@ -62,11 +61,8 @@ tier gratuit Supabase.
 
 ### Phase D — Fiche App Store Connect (📱 toi seul, non délégable)
 - [ ] Créer la **fiche app** (bundle `com.shipply.hydraapp`) si pas déjà fait.
-- [ ] **Nom, sous-titre, description, mots-clés** (Claude rédige, tu colles).
-- [ ] Catégorie **Santé & Forme** · classification **17+** (alcool).
-- [ ] **Labels de confidentialité** (données santé/alcool + identifiant de
-      compte) — Claude te donne exactement quoi cocher.
-- [ ] Coller les URLs de confidentialité/support une fois déployées (Bloquant #1).
+- [ ] Coller le contenu de `hydra/APPSTORE_LISTING.md` (nom, sous-titre,
+      description, mots-clés, catégorie, âge, confidentialité, URLs).
 
 ### Phase E — Build prod & soumission
 - [ ] **Build de production AVEC widget** : `eas build --profile production
@@ -87,14 +83,15 @@ tier gratuit Supabase.
 ## ⏱️ Où on en est
 
 Tout le **code** est prêt : moteur, widget, auth, comptes, paywall, notifications.
-Il reste surtout des étapes **côté Apple/légal**, pas du code :
+Les deux blocages légaux/administratifs sont levés (pages légales en ligne,
+compte Apple déjà en règle). Il reste :
 
-1. **Pages légales** (je peux le faire maintenant, dis-moi go).
-2. **Banque/fiscal Apple** (toi seul — si pas encore fait, c'est LE prochain vrai
-   blocage).
-3. **Icône finale + captures d'écran**.
-4. **Remplir la fiche App Store Connect** (texte fourni par moi, à coller).
-5. **Build production + soumission**.
+1. **Icône finale + captures d'écran** (toi, sur le device).
+2. **Remplir la fiche App Store Connect** — texte déjà rédigé dans
+   `hydra/APPSTORE_LISTING.md`, tu n'as qu'à coller.
+3. **Modifs dans l'app** avant le build de prod (prévues par toi, pas encore
+   commencées).
+4. **Build production + soumission**.
 
 **Estimation : quelques jours**, principalement limitée par la vitesse à
 laquelle tu remplis les étapes App Store Connect côté Apple + le délai de
