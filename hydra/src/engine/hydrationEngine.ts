@@ -615,3 +615,40 @@ export function remainingAbsorptionMl(
   const used = waterAbsorbedInWindow(sorted, at);
   return Math.max(0, MAX_WATER_ABSORB_ML_PER_H - used);
 }
+
+// Smallest amount of free absorption capacity (mL) the app requires before it
+// will accept another drink. Mirrors the store's guard (logWater / logPreset
+// refuse a drink when remainingAbsorptionMl < this). Kept here so the "you can
+// drink again in …" countdown and the block use the exact same threshold.
+export const MIN_DRINKABLE_ML = 30;
+
+// When will the body accept water again? The absorption cap is a *rolling* hour:
+// each credited drink frees its capacity exactly ABSORB_WINDOW_MS after it was
+// logged. With no new drinks the credited amounts are fixed, so we replay the
+// oldest-first exit events until enough capacity returns, and report the instant
+// it does. Returns the absolute timestamp (ms), or null if there's room already.
+export function absorptionRecoveryAt(
+  events: HydrationEvent[],
+  at: number = Date.now(),
+  minRemainingMl: number = MIN_DRINKABLE_ML
+): number | null {
+  const sorted = [...events].sort((a, b) => a.at - b.at);
+  const credited = creditedWaterMl(sorted);
+  // Credited contributions still inside the trailing-hour window, each tagged
+  // with the instant it leaves the window (its timestamp + one hour).
+  const inWindow: { exitAt: number; ml: number }[] = [];
+  for (let i = 0; i < sorted.length; i++) {
+    const e = sorted[i];
+    if (credited[i] > 0 && e.at > at - ABSORB_WINDOW_MS && e.at <= at) {
+      inWindow.push({ exitAt: e.at + ABSORB_WINDOW_MS, ml: credited[i] });
+    }
+  }
+  let used = inWindow.reduce((sum, x) => sum + x.ml, 0);
+  if (MAX_WATER_ABSORB_ML_PER_H - used >= minRemainingMl) return null; // room now
+  inWindow.sort((a, b) => a.exitAt - b.exitAt); // oldest leaves first
+  for (const x of inWindow) {
+    used -= x.ml;
+    if (MAX_WATER_ABSORB_ML_PER_H - used >= minRemainingMl) return x.exitAt;
+  }
+  return null;
+}

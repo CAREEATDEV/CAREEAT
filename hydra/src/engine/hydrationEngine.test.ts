@@ -9,6 +9,7 @@ import {
   ethanolGrams,
   HydrationEvent,
   peakPoisonExtra,
+  absorptionRecoveryAt,
   remainingAbsorptionMl,
   sweatRateMlPerHour,
   UserProfile,
@@ -384,6 +385,34 @@ describe('water absorption cap (~1000 mL / rolling hour)', () => {
     const before = computeState(base, ts(20), P70).levelMl;
     const after = computeState(withBeer, ts(20), P70).levelMl;
     expect(after).toBeGreaterThan(before); // capacity available → beer hydrates
+  });
+});
+
+describe('absorptionRecoveryAt (when can I drink again?)', () => {
+  it('returns null when there is still room to drink', () => {
+    const events: HydrationEvent[] = [{ type: 'water', at: ts(10), volumeMl: 500 }];
+    // 500 of 1000 used → 500 free, well above the 30 mL threshold.
+    expect(absorptionRecoveryAt(events, ts(10, 1))).toBeNull();
+  });
+
+  it('when saturated, points to when the oldest drink ages out of the hour', () => {
+    // A single 1 L chug saturates the window; capacity only returns when that
+    // drink leaves the rolling hour, i.e. exactly one hour after it was logged.
+    const events: HydrationEvent[] = [{ type: 'water', at: ts(10), volumeMl: 1000 }];
+    const recover = absorptionRecoveryAt(events, ts(10, 1));
+    expect(recover).toBe(ts(10) + 3_600_000); // ts(11)
+    // …and once that instant passes there is room again.
+    expect(absorptionRecoveryAt(events, ts(11, 1))).toBeNull();
+  });
+
+  it('with staggered drinks, recovery comes from the oldest, not the newest', () => {
+    // 700 mL at 10:00, 300 mL at 10:30 → saturated at 10:31. Freeing the 10:00
+    // drink (at 11:00) drops usage by 700, leaving only 300 used → room again.
+    const events: HydrationEvent[] = [
+      { type: 'water', at: ts(10), volumeMl: 700 },
+      { type: 'water', at: ts(10, 30), volumeMl: 300 },
+    ];
+    expect(absorptionRecoveryAt(events, ts(10, 31))).toBe(ts(10) + 3_600_000);
   });
 });
 

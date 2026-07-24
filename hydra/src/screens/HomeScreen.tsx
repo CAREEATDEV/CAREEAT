@@ -8,7 +8,12 @@ import { HydrationBar } from '../components/HydrationBar';
 import { LogButton } from '../components/LogButton';
 import { SportLogModal } from '../components/SportLogModal';
 import { useHydration } from '../store/useHydration';
-import { computeState, forecastZoneCrossings, SportIntensity } from '../engine/hydrationEngine';
+import {
+  absorptionRecoveryAt,
+  computeState,
+  forecastZoneCrossings,
+  SportIntensity,
+} from '../engine/hydrationEngine';
 import { C, FONTS } from '../theme/colors';
 import { formatCountdownPrecise } from '../util/time';
 import { greenStreak } from '../util/stats';
@@ -63,14 +68,22 @@ export function HomeScreen() {
   );
   const sportActive = sportSessions.length > 0;
 
+  // When the rolling-hour absorption cap is maxed out, the exact instant the
+  // body can take water again — drives the live "attends …" countdown below.
+  const recoverAt = useMemo(
+    () => absorptionRecoveryAt(events, nowMs),
+    [events, nowMs]
+  );
+
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 2800);
   };
 
   const onSaturated = () => {
+    // The persistent banner (with its live countdown) already explains the
+    // block, so a warning haptic is enough here — no transient toast on top.
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-    showToast('SATURÉ · ton corps ne peut pas absorber plus vite. Attends un peu.');
   };
 
   const drink = async (key: string) => {
@@ -143,6 +156,21 @@ export function HomeScreen() {
               {formatCountdownPrecise(redAt, nowMs)}
             </Text>
           </View>
+
+          {state.saturated ? (
+            <View style={styles.satBanner}>
+              <Text style={styles.satText}>
+                SATURÉ · ton corps ne peut pas absorber plus vite.
+              </Text>
+              <Text style={styles.satText}>
+                Attends encore{' '}
+                <Text style={styles.satTimer}>
+                  {recoverAt ? formatCountdownPrecise(recoverAt, nowMs) : '—'}
+                </Text>{' '}
+                avant de reboire de l'eau.
+              </Text>
+            </View>
+          ) : null}
 
           {toast ? <Text style={styles.toast}>{toast}</Text> : null}
 
@@ -261,6 +289,26 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textAlign: 'center',
     paddingVertical: 6,
+  },
+  satBanner: {
+    borderWidth: 1,
+    borderColor: C.poison,
+    borderRadius: 12,
+    backgroundColor: 'rgba(180,76,255,0.10)',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: 3,
+  },
+  satText: {
+    color: C.poison,
+    fontFamily: FONTS.label,
+    fontSize: 12,
+    letterSpacing: 1,
+    textAlign: 'center',
+  },
+  satTimer: {
+    fontFamily: FONTS.monoBold,
+    letterSpacing: 1,
   },
   footHint: {
     marginTop: 16,
