@@ -36,6 +36,68 @@ struct UserProfile: Codable {
     )
 }
 
+// Mirrors the TS `Partial<UserProfile>` carried by a `profile` event: EVERY
+// field is optional. The app writes single-field patches (e.g. `{weightKg:75}`
+// when you change your weight), so decoding a patch into the full `UserProfile`
+// throws `keyNotFound` and takes the WHOLE snapshot decode down with it — which
+// is why the widget silently fell back to its 100% placeholder. For the three
+// nullable UserProfile fields we track key-presence so a re-encode (the widget's
+// +EAU button rewrites the snapshot) round-trips exactly, and so effectiveProfile
+// can mirror the TS `{...p, ...patch}` spread (only keys the patch contains win).
+struct ProfilePatch: Codable {
+    var weightKg: Double?
+    var sex: Sex?
+    var awakeHours: Double?
+    var sleepStartHour: Double?
+    var sleepEndHour: Double?
+    var altitudeM: Double?
+    var hasAmbientTempC = false;        var ambientTempC: Double?
+    var hasRelativeHumidityPct = false; var relativeHumidityPct: Double?
+    var hasDailyGoalOverrideMl = false; var dailyGoalOverrideMl: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case weightKg, sex, awakeHours, sleepStartHour, sleepEndHour, altitudeM
+        case ambientTempC, relativeHumidityPct, dailyGoalOverrideMl
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        weightKg = try c.decodeIfPresent(Double.self, forKey: .weightKg)
+        sex = try c.decodeIfPresent(Sex.self, forKey: .sex)
+        awakeHours = try c.decodeIfPresent(Double.self, forKey: .awakeHours)
+        sleepStartHour = try c.decodeIfPresent(Double.self, forKey: .sleepStartHour)
+        sleepEndHour = try c.decodeIfPresent(Double.self, forKey: .sleepEndHour)
+        altitudeM = try c.decodeIfPresent(Double.self, forKey: .altitudeM)
+        if c.contains(.ambientTempC) {
+            hasAmbientTempC = true
+            ambientTempC = try c.decodeIfPresent(Double.self, forKey: .ambientTempC)
+        }
+        if c.contains(.relativeHumidityPct) {
+            hasRelativeHumidityPct = true
+            relativeHumidityPct = try c.decodeIfPresent(Double.self, forKey: .relativeHumidityPct)
+        }
+        if c.contains(.dailyGoalOverrideMl) {
+            hasDailyGoalOverrideMl = true
+            dailyGoalOverrideMl = try c.decodeIfPresent(Double.self, forKey: .dailyGoalOverrideMl)
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(weightKg, forKey: .weightKg)
+        try c.encodeIfPresent(sex, forKey: .sex)
+        try c.encodeIfPresent(awakeHours, forKey: .awakeHours)
+        try c.encodeIfPresent(sleepStartHour, forKey: .sleepStartHour)
+        try c.encodeIfPresent(sleepEndHour, forKey: .sleepEndHour)
+        try c.encodeIfPresent(altitudeM, forKey: .altitudeM)
+        // encode (not encodeIfPresent) so an explicit null is preserved, matching
+        // how the app wrote it; the presence flag decides whether to emit at all.
+        if hasAmbientTempC { try c.encode(ambientTempC, forKey: .ambientTempC) }
+        if hasRelativeHumidityPct { try c.encode(relativeHumidityPct, forKey: .relativeHumidityPct) }
+        if hasDailyGoalOverrideMl { try c.encode(dailyGoalOverrideMl, forKey: .dailyGoalOverrideMl) }
+    }
+}
+
 struct HydrationEvent: Codable {
     let type: EventType
     let at: TimeInterval          // ms since epoch (JS parity)
@@ -44,7 +106,7 @@ struct HydrationEvent: Codable {
     let caffeineMg: Double?
     let durationMin: Double?
     let intensity: SportIntensity?
-    let patch: UserProfile?
+    let patch: ProfilePatch?
 }
 
 struct HydrationState {
@@ -209,15 +271,17 @@ private func effectiveProfile(_ events: [HydrationEvent], _ at: TimeInterval, _ 
     for e in events {
         if e.at > at { break }
         if e.type == .profile, let patch = e.patch {
-            p.weightKg = patch.weightKg
-            p.sex = patch.sex
-            p.awakeHours = patch.awakeHours
-            p.sleepStartHour = patch.sleepStartHour
-            p.sleepEndHour = patch.sleepEndHour
-            p.ambientTempC = patch.ambientTempC
-            p.relativeHumidityPct = patch.relativeHumidityPct
-            p.altitudeM = patch.altitudeM
-            p.dailyGoalOverrideMl = patch.dailyGoalOverrideMl
+            // Mirror the TS `{ ...p, ...e.patch }` spread: override only the
+            // fields the patch actually carries, leaving the rest untouched.
+            if let v = patch.weightKg { p.weightKg = v }
+            if let v = patch.sex { p.sex = v }
+            if let v = patch.awakeHours { p.awakeHours = v }
+            if let v = patch.sleepStartHour { p.sleepStartHour = v }
+            if let v = patch.sleepEndHour { p.sleepEndHour = v }
+            if let v = patch.altitudeM { p.altitudeM = v }
+            if patch.hasAmbientTempC { p.ambientTempC = patch.ambientTempC }
+            if patch.hasRelativeHumidityPct { p.relativeHumidityPct = patch.relativeHumidityPct }
+            if patch.hasDailyGoalOverrideMl { p.dailyGoalOverrideMl = patch.dailyGoalOverrideMl }
         }
     }
     return p
