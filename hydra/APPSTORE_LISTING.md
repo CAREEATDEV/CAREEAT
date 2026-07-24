@@ -177,7 +177,7 @@ Developer (le même que pour CAREEAT).
 
 ## 11. Coordonnées de contact (App Review Information)
 
-- **Email** : `clemtrialktm@gmail.com`
+- **Email** : `hydraapp.contact@gmail.com`
 - **Téléphone** : le tien.
 - **Notes pour le reviewer** (optionnel mais utile, colle ceci) :
 
